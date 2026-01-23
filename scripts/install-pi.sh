@@ -36,8 +36,11 @@ sudo ufw allow 80
 sudo ufw allow 443
 sudo ufw --force enable
 
-if [[ ! -d "$PROJECT_DIR" ]]; then
+if [[ ! -d "$PROJECT_DIR/.git" ]]; then
+  sudo mkdir -p "$PROJECT_DIR"
   sudo git clone "$REPO_URL" "$PROJECT_DIR"
+else
+  echo "Repo existiert bereits: $PROJECT_DIR"
 fi
 
 sudo chown -R "$USER":"$USER" "$PROJECT_DIR"
@@ -91,6 +94,6 @@ fi
 
 sudo mkdir -p nginx/certs
 
-sudo docker-compose up -d --build
+sudo docker compose up -d --build
 
 echo "Install complete. Log out/in to apply docker group change."
