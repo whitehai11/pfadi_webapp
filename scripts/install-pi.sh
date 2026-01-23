@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_DIR=${PROJECT_DIR:-/opt/pfadi-orga}
 REPO_URL=${REPO_URL:-"https://github.com/whitehai11/pfadi_webapp.git"}
+PROMPT_ENV=${PROMPT_ENV:-1}
 
 if [[ -z "$REPO_URL" ]]; then
   read -rp "Git-Repo URL (z. B. https://github.com/whitehai11/pfadi_webapp.git): " REPO_URL
@@ -84,7 +85,7 @@ get_env() {
   grep -E "^${key}=" .env | head -n1 | cut -d= -f2-
 }
 
-if [[ -z "$(get_env JWT_SECRET)" ]]; then
+if [[ -z "$(get_env JWT_SECRET)" || "$PROMPT_ENV" == "1" ]]; then
   read -rp "JWT_SECRET (leer = automatisch generieren): " JWT_SECRET
   if [[ -z "$JWT_SECRET" ]]; then
     JWT_SECRET=$(openssl rand -hex 32)
@@ -92,12 +93,12 @@ if [[ -z "$(get_env JWT_SECRET)" ]]; then
   set_env "JWT_SECRET" "$JWT_SECRET"
 fi
 
-if [[ -z "$(get_env BASE_URL)" ]]; then
+if [[ -z "$(get_env BASE_URL)" || "$PROMPT_ENV" == "1" ]]; then
   read -rp "BASE_URL (z. B. https://pfadi.example.org): " BASE_URL
   set_env "BASE_URL" "$BASE_URL"
 fi
 
-if [[ -z "$(get_env ADMIN_EMAILS)" ]]; then
+if [[ -z "$(get_env ADMIN_EMAILS)" || "$PROMPT_ENV" == "1" ]]; then
   read -rp "Admin-Benutzername(n), kommasepariert (z. B. maro,alex): " ADMIN_EMAILS
   set_env "ADMIN_EMAILS" "$ADMIN_EMAILS"
 fi
