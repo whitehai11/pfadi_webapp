@@ -1,0 +1,10 @@
+ALTER TABLE push_rules ADD COLUMN title_template TEXT;
+ALTER TABLE push_rules ADD COLUMN body_template TEXT;
+ALTER TABLE push_rules ADD COLUMN min_response_percent INTEGER;
+ALTER TABLE push_rules ADD COLUMN event_type TEXT;
+ALTER TABLE push_rules ADD COLUMN send_start TEXT;
+ALTER TABLE push_rules ADD COLUMN send_end TEXT;
+ALTER TABLE push_rules ADD COLUMN schedule_start_date TEXT;
+ALTER TABLE push_rules ADD COLUMN schedule_every TEXT;
+ALTER TABLE push_rules ADD COLUMN schedule_time TEXT;
+ALTER TABLE push_rules ADD COLUMN cooldown_hours INTEGER;
