@@ -48,3 +48,9 @@ export const authHeader = (): Record<string, string> => {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
+
+export const roleLabel = (role: UserSession["role"]) => {
+  if (role === "user") return "Nutzer";
+  if (role === "admin") return "Admin";
+  return "Materialwart";
+};

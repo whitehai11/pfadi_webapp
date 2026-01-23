@@ -174,13 +174,13 @@
     <section class="card-grid grid-2">
       <div class="card">
         <h3 class="section-title">Rollenverwaltung</h3>
-        <p class="text-muted">Benutzernamen und Rollen sofort ändern. User ist die Standardrolle.</p>
+        <p class="text-muted">Benutzernamen und Rollen sofort ändern. Nutzer ist die Standardrolle.</p>
         <div class="card-grid">
           {#each users as user}
             <div class="actions actions-between">
               <span>{user.email}</span>
               <select class="select" bind:value={user.role} on:change={(e) => updateRole(user.id, e.currentTarget.value)}>
-                <option value="user">User</option>
+                <option value="user">Nutzer</option>
                 <option value="materialwart">Materialwart</option>
                 <option value="admin">Admin</option>
               </select>
@@ -240,7 +240,7 @@
       <div class="actions actions-between">
         <div>
           <h3 class="section-title">Push-Regeln</h3>
-          <p class="text-muted">Regeln für Erinnerungen und Hinweise.</p>
+          <p class="text-muted">Regeln für Push-Benachrichtigungen</p>
         </div>
         <button class="btn btn-outline" on:click={addRule}>Neue Regel</button>
       </div>
@@ -269,7 +269,7 @@
             {/if}
             <select class="select" bind:value={rule.target_role}>
               <option value="">Alle Rollen</option>
-              <option value="user">User</option>
+              <option value="user">Nutzer</option>
               <option value="materialwart">Materialwart</option>
               <option value="admin">Admin</option>
             </select>
@@ -351,5 +351,3 @@
     </section>
   {/if}
 </section>
-
-

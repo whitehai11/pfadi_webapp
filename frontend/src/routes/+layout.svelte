@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
-  import { session, restoreSession, clearToken } from "$lib/auth";
+  import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
   import { registerPush } from "$lib/push";
   import LoadingScreen from "$lib/components/LoadingScreen.svelte";
   import "$lib/styles/app.css";
@@ -72,7 +72,7 @@
           {/if}
         </nav>
         <div class="user-menu">
-          <span>{$session.username} ({$session.role})</span>
+          <span>{$session.username} ({roleLabel($session.role)})</span>
           <button class="btn btn-outline" on:click={clearToken}>Logout</button>
         </div>
       </div>

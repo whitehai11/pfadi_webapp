@@ -114,6 +114,13 @@ const formatDate = (value?: string) => {
   return new Date(value).toLocaleString("de-DE");
 };
 
+const roleLabel = (role?: string) => {
+  if (role === "user") return "Nutzer";
+  if (role === "admin") return "Admin";
+  if (role === "materialwart") return "Materialwart";
+  return role ?? "";
+};
+
 const renderTemplate = (
   template: string,
   event: EventContext | null,
@@ -128,7 +135,7 @@ const renderTemplate = (
     "{event.location}": event?.location ?? "",
     "{event.description}": event?.description ?? "",
     "{user.name}": user?.username ?? "",
-    "{user.role}": user?.role ?? "",
+    "{user.role}": roleLabel(user?.role),
     "{item.name}": item?.name ?? "",
     "{item.category}": item?.category ?? "",
     "{item.location}": item?.location ?? "",
