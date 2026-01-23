@@ -6,4 +6,4 @@ if ! command -v npx >/dev/null 2>&1; then
   exit 1
 fi
 
-npx web-push generate-vapid-keys --json
+npx --yes web-push generate-vapid-keys --json

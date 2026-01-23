@@ -13,24 +13,39 @@ if [[ -z "$REPO_URL" ]]; then
   exit 1
 fi
 
-sudo apt-get update
-sudo apt-get -y upgrade
+retry_apt() {
+  local cmd="$1"
+  local tries=5
+  for i in $(seq 1 $tries); do
+    if eval "$cmd"; then
+      return 0
+    fi
+    echo "APT-Fehler, versuche erneut ($i/$tries)..." >&2
+    sleep 3
+  done
+  return 1
+}
+
+retry_apt "sudo apt-get update"
+retry_apt "sudo apt-get -y upgrade || true"
+
+sudo apt-get install -y ca-certificates curl gnupg lsb-release git ufw
 
 if ! command -v docker >/dev/null 2>&1; then
   curl -fsSL https://get.docker.com | sh
-  sudo usermod -aG docker "$USER"
 fi
 
 if ! docker compose version >/dev/null 2>&1; then
-  sudo apt-get install -y docker-compose-plugin
+  retry_apt "sudo apt-get install -y docker-compose-plugin"
 fi
 
 if ! command -v node >/dev/null 2>&1; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt-get install -y nodejs
+  retry_apt "sudo apt-get install -y nodejs"
 fi
 
-sudo apt-get install -y ufw git
+sudo systemctl enable --now docker || true
+
 sudo ufw allow OpenSSH
 sudo ufw allow 80
 sudo ufw allow 443
@@ -45,6 +60,10 @@ fi
 
 sudo chown -R "$USER":"$USER" "$PROJECT_DIR"
 cd "$PROJECT_DIR"
+
+if [[ -f .env && ! -f .env.backup ]]; then
+  cp .env .env.backup
+fi
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
@@ -85,7 +104,8 @@ fi
 
 if [[ -z "$(get_env VAPID_PUBLIC_KEY)" || -z "$(get_env VAPID_PRIVATE_KEY)" ]]; then
   echo "Generating VAPID keys..."
-  ./scripts/generate-vapid.sh > /tmp/vapid.json
+  chmod +x scripts/generate-vapid.sh || true
+  bash ./scripts/generate-vapid.sh > /tmp/vapid.json
   VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.publicKey)")
   VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.privateKey)")
   set_env "VAPID_PUBLIC_KEY" "$VAPID_PUBLIC_KEY"
@@ -94,6 +114,10 @@ fi
 
 sudo mkdir -p nginx/certs
 
-sudo docker compose up -d --build
+if docker compose version >/dev/null 2>&1; then
+  sudo docker compose up -d --build
+else
+  sudo docker-compose up -d --build
+fi
 
 echo "Install complete. Log out/in to apply docker group change."
