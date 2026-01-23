@@ -21,8 +21,8 @@ if ! command -v docker >/dev/null 2>&1; then
   sudo usermod -aG docker "$USER"
 fi
 
-if ! command -v docker-compose >/dev/null 2>&1; then
-  sudo apt-get install -y docker-compose
+if ! docker compose version >/dev/null 2>&1; then
+  sudo apt-get install -y docker-compose-plugin
 fi
 
 if ! command -v node >/dev/null 2>&1; then
