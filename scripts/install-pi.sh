@@ -2,10 +2,10 @@
 set -euo pipefail
 
 PROJECT_DIR=${PROJECT_DIR:-/opt/pfadi-orga}
-REPO_URL=${REPO_URL:-""}
+REPO_URL=${REPO_URL:-"https://github.com/whitehai11/pfadi_webapp.git"}
 
 if [[ -z "$REPO_URL" ]]; then
-  read -rp "Git-Repo URL (z. B. https://github.com/orga/pfadi-orga.git): " REPO_URL
+  read -rp "Git-Repo URL (z. B. https://github.com/whitehai11/pfadi_webapp.git): " REPO_URL
 fi
 
 if [[ -z "$REPO_URL" ]]; then
