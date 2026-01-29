@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
-const CACHE_NAME = "pfadi-shell-v1";
+const CACHE_NAME = "pfadi-shell-v2";
 
 const ASSET_PATHS = ["/", "/manifest.json", "/icon.svg"]; 
 

@@ -8,6 +8,7 @@
   let loading = true;
   let error = "";
   let editingId: string | null = null;
+  let webcalUrl = "/calendar.ics";
 
   let title = "";
   let type = "Gruppenstunde";
@@ -134,14 +135,19 @@
     return "badge-success";
   };
 
-  onMount(loadEvents);
+  onMount(() => {
+    if (typeof window !== "undefined") {
+      webcalUrl = window.location.origin.replace(/^https?/, "webcal") + "/calendar.ics";
+    }
+    loadEvents();
+  });
 </script>
 
 <section class="card-grid grid-2">
   <div class="card">
     <h2 class="page-title">Kalender</h2>
     <div class="actions">
-      <a class="btn btn-outline" href="/calendar.ics" target="_blank">ICS abonnieren</a>
+      <a class="btn btn-outline" href={webcalUrl}>Kalender abonnieren</a>
     </div>
   </div>
   {#if $session?.role === 'admin'}
@@ -202,7 +208,7 @@
       <h3 class="section-title">Noch keine Termine</h3>
       <p class="text-muted">Sobald ein Termin angelegt ist, erscheint er hier mit Teilnahme und Packliste.</p>
       <div class="actions">
-        <a class="btn btn-outline" href="/calendar.ics" target="_blank">ICS abonnieren</a>
+        <a class="btn btn-outline" href={webcalUrl}>Kalender abonnieren</a>
         {#if $session?.role === 'admin'}
           <button class="btn btn-primary" type="button" on:click={scrollToForm}>
             Termin anlegen

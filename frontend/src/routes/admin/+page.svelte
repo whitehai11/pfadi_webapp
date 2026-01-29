@@ -18,7 +18,7 @@
     { value: "event-created", label: "Termin erstellt" },
     { value: "event-updated", label: "Termin geändert" },
     { value: "event-canceled", label: "Termin abgesagt" },
-    { value: "inventory-low", label: "Inventar unter Mindestmenge" },
+    { value: "inventory-low", label: "Material unter Mindestmenge" },
     { value: "weekly-admin", label: "Wöchentliche Admin-Erinnerung" }
   ];
 
@@ -174,7 +174,7 @@
     <section class="card-grid grid-2">
       <div class="card">
         <h3 class="section-title">Rollenverwaltung</h3>
-        <p class="text-muted">Benutzernamen und Rollen sofort ändern. Nutzer ist die Standardrolle.</p>
+        <p class="text-muted">Benutzernamen und Rollen sofort ändern</p>
         <div class="card-grid">
           {#each users as user}
             <div class="actions actions-between">
@@ -191,17 +191,15 @@
 
       <div class="card">
         <h3 class="section-title">Feature-Flags</h3>
-        <p class="text-muted">Schalter wirken sofort auf NFC/QR-Anzeige.</p>
+        <p class="text-muted">Schalter wirken sofort auf die NFC-Anzeige.</p>
         <div class="form-grid">
           {#each settings as item}
-            {#if item.key === 'nfc_enabled' || item.key === 'qr_enabled'}
+            {#if item.key === 'nfc_enabled'}
               <div class="actions actions-between">
                 <div>
-                  <strong>{item.key === 'nfc_enabled' ? 'NFC aktivieren' : 'QR aktivieren'}</strong>
+                  <strong>NFC aktivieren</strong>
                   <p class="text-muted">
-                    {item.key === 'nfc_enabled'
-                      ? 'NFC-Tags für Inventar anzeigen.'
-                      : 'QR-Codes für Inventar anzeigen.'}
+                    NFC-Kennungen für Material anzeigen.
                   </p>
                 </div>
                 <label class="toggle">
@@ -286,20 +284,26 @@
             </div>
             <div class="form-grid">
               <div class="field">
-                <label>Fenster-Start</label>
-                <input class="input" type="time" bind:value={rule.send_start} />
+                <label for={`rule-${rule.id}-send-start`}>Fenster-Start</label>
+                <input id={`rule-${rule.id}-send-start`} class="input" type="time" bind:value={rule.send_start} />
               </div>
               <div class="field">
-                <label>Fenster-Ende</label>
-                <input class="input" type="time" bind:value={rule.send_end} />
+                <label for={`rule-${rule.id}-send-end`}>Fenster-Ende</label>
+                <input id={`rule-${rule.id}-send-end`} class="input" type="time" bind:value={rule.send_end} />
               </div>
               <div class="field">
-                <label>Cooldown (Stunden)</label>
-                <input class="input" type="number" min="0" bind:value={rule.cooldown_hours} />
+                <label for={`rule-${rule.id}-cooldown`}>Cooldown (Stunden)</label>
+                <input
+                  id={`rule-${rule.id}-cooldown`}
+                  class="input"
+                  type="number"
+                  min="0"
+                  bind:value={rule.cooldown_hours}
+                />
               </div>
               <div class="field">
-                <label>Event-Typ</label>
-                <select class="select" bind:value={rule.event_type}>
+                <label for={`rule-${rule.id}-event-type`}>Event-Typ</label>
+                <select id={`rule-${rule.id}-event-type`} class="select" bind:value={rule.event_type}>
                   {#each eventTypes as type}
                     <option value={type}>{type === "" ? "Alle Typen" : type}</option>
                   {/each}
@@ -307,18 +311,30 @@
               </div>
               {#if rule.rule_type === "availability-missing"}
                 <div class="field">
-                  <label>Min. Rückmeldungen (%)</label>
-                  <input class="input" type="number" min="0" max="100" bind:value={rule.min_response_percent} />
+                  <label for={`rule-${rule.id}-min-response`}>Min. Rückmeldungen (%)</label>
+                  <input
+                    id={`rule-${rule.id}-min-response`}
+                    class="input"
+                    type="number"
+                    min="0"
+                    max="100"
+                    bind:value={rule.min_response_percent}
+                  />
                 </div>
               {/if}
               {#if isScheduleRule(rule.rule_type)}
                 <div class="field">
-                  <label>Startdatum</label>
-                  <input class="input" type="date" bind:value={rule.schedule_start_date} />
+                  <label for={`rule-${rule.id}-start-date`}>Startdatum</label>
+                  <input
+                    id={`rule-${rule.id}-start-date`}
+                    class="input"
+                    type="date"
+                    bind:value={rule.schedule_start_date}
+                  />
                 </div>
                 <div class="field">
-                  <label>Rhythmus</label>
-                  <select class="select" bind:value={rule.schedule_every}>
+                  <label for={`rule-${rule.id}-schedule-every`}>Rhythmus</label>
+                  <select id={`rule-${rule.id}-schedule-every`} class="select" bind:value={rule.schedule_every}>
                     <option value="">Kein Rhythmus</option>
                     <option value="daily">Täglich</option>
                     <option value="weekly">Wöchentlich</option>
@@ -326,19 +342,34 @@
                   </select>
                 </div>
                 <div class="field">
-                  <label>Uhrzeit</label>
-                  <input class="input" type="time" bind:value={rule.schedule_time} />
+                  <label for={`rule-${rule.id}-schedule-time`}>Uhrzeit</label>
+                  <input
+                    id={`rule-${rule.id}-schedule-time`}
+                    class="input"
+                    type="time"
+                    bind:value={rule.schedule_time}
+                  />
                 </div>
               {/if}
             </div>
             <div class="form-grid">
               <div class="field">
-                <label>Titel (Template)</label>
-                <input class="input" bind:value={rule.title_template} placeholder="z. B. Termin-Erinnerung" />
+                <label for={`rule-${rule.id}-title-template`}>Titel (Template)</label>
+                <input
+                  id={`rule-${rule.id}-title-template`}
+                  class="input"
+                  bind:value={rule.title_template}
+                  placeholder="z. B. Termin-Erinnerung"
+                />
               </div>
               <div class="field">
-                <label>Text (Template)</label>
-                <textarea class="input" rows="3" bind:value={rule.body_template}></textarea>
+                <label for={`rule-${rule.id}-body-template`}>Text (Template)</label>
+                <textarea
+                  id={`rule-${rule.id}-body-template`}
+                  class="input"
+                  rows="3"
+                  bind:value={rule.body_template}
+                ></textarea>
               </div>
             </div>
             <p class="text-muted">

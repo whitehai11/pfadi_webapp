@@ -64,9 +64,9 @@
       <a class="btn btn-outline" href="/calendar">Zum Kalender</a>
     </div>
     <div class="card">
-      <h3 class="section-title">Inventar</h3>
+      <h3 class="section-title">Material</h3>
       <p class="text-muted">Material sauber erfassen, Lagerorte und Mengen im Blick behalten.</p>
-      <a class="btn btn-outline" href="/inventory">Zum Inventar</a>
+      <a class="btn btn-outline" href="/inventory">Zum Material</a>
     </div>
   </section>
 {/if}

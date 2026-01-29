@@ -1,6 +1,5 @@
 <script lang="ts">
   export let size = 48;
-  export let alt = "Pfadfinder-Logo";
 </script>
 
 <svg

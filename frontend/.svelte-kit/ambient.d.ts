@@ -41,7 +41,7 @@ declare module '$env/static/private' {
 	export const ComSpec: string;
 	export const DriverData: string;
 	export const EDITOR: string;
-	export const EFC_8960_1592913036: string;
+	export const EFC_9568_1592913036: string;
 	export const GIT_ASKPASS: string;
 	export const GOPATH: string;
 	export const GRADLE_HOME: string;
@@ -159,7 +159,7 @@ declare module '$env/dynamic/private' {
 		ComSpec: string;
 		DriverData: string;
 		EDITOR: string;
-		EFC_8960_1592913036: string;
+		EFC_9568_1592913036: string;
 		GIT_ASKPASS: string;
 		GOPATH: string;
 		GRADLE_HOME: string;

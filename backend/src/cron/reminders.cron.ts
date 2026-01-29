@@ -134,7 +134,7 @@ export const scheduleReminders = () => {
       }
     }
 
-    // Inventar unter Mindestmenge
+    // Material unter Mindestmenge
     const inventoryRules = getRules("inventory-low");
     for (const rule of inventoryRules) {
       const items = db

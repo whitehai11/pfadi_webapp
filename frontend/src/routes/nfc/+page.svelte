@@ -2,24 +2,24 @@
   import { isNfcSupported, readNfcTag } from "$lib/nfc";
   import { apiFetch } from "$lib/api";
 
-  let status = "Tippe auf einen NFC-Tag, um den Inhalt zu lesen.";
-  let item: any = null;
+  let status = "NFC-Kennung lesen.";
+  let box: any = null;
   let scanning = false;
 
   const startScan = async () => {
     status = "Scanne...";
-    item = null;
+    box = null;
     try {
       if (!isNfcSupported()) {
-        status = "NFC wird auf diesem Gerät nicht unterstützt.";
+        status = "NFC nicht verfügbar.";
         return;
       }
       scanning = true;
       const tagId = await readNfcTag();
-      status = `Tag erkannt: ${tagId}`;
-      item = await apiFetch(`/api/inventory/tag/${encodeURIComponent(tagId)}`);
+      status = `Kennung erkannt: ${tagId}`;
+      box = await apiFetch(`/api/boxes/tag/${encodeURIComponent(tagId)}`);
     } catch {
-      status = "Tag konnte nicht gelesen oder nicht gefunden werden.";
+      status = "Kennung konnte nicht gelesen oder nicht gefunden werden.";
     } finally {
       scanning = false;
     }
@@ -30,29 +30,39 @@
   <div class="nfc-glow"></div>
   <div>
     <h2 class="page-title">NFC</h2>
-    <p class="text-muted">Halte den Tag an dein Gerät. Das System zeigt den Inhalt der Box an.</p>
+    <p class="text-muted">Kennung lesen und Box anzeigen.</p>
     <div class="actions">
-      <button class="btn btn-primary" on:click={startScan}>Tag lesen</button>
+      <button class="btn btn-primary" on:click={startScan}>Kennung lesen</button>
       <span class="hint">{status}</span>
     </div>
   </div>
   <div class="nfc-orb" aria-hidden="true"></div>
 </section>
 
-{#if item}
+{#if box}
   <section class="card">
-    <h3 class="section-title">Gefundene Box</h3>
+    <h3 class="section-title">Box</h3>
     <div class="card-grid grid-2">
       <div>
-        <p><strong>Name:</strong> {item.name}</p>
-        <p><strong>Kategorie:</strong> {item.category}</p>
-        <p><strong>Lagerort:</strong> {item.location}</p>
+        <p><strong>Name:</strong> {box.name}</p>
+        <p><strong>Beschreibung:</strong> {box.description || "-"}</p>
       </div>
       <div>
-        <p><strong>Menge:</strong> {item.quantity}</p>
-        <p><strong>Zustand:</strong> {item.condition}</p>
-        <p><strong>Tag:</strong> {item.tag_id}</p>
+        <p><strong>Kennung:</strong> {box.nfc_tag}</p>
       </div>
     </div>
+    <h4 class="section-title">Material</h4>
+    {#if box.materials?.length}
+      <div class="card-grid">
+        {#each box.materials as entry}
+          <div class="actions actions-between">
+            <span>{entry.name}</span>
+            <span class="badge badge-secondary">{entry.assigned_quantity}</span>
+          </div>
+        {/each}
+      </div>
+    {:else}
+      <p class="text-muted">Keine Daten vorhanden.</p>
+    {/if}
   </section>
 {/if}

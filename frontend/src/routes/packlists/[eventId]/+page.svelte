@@ -51,7 +51,7 @@
       status = "missing";
       await load();
     } catch {
-      error = "Item konnte nicht hinzugefügt werden.";
+      error = "Packlisteneintrag konnte nicht hinzugefügt werden.";
     }
   };
 
@@ -105,7 +105,7 @@
           <span class="badge badge-secondary">{progress()}%</span>
         </div>
         <progress class="progress-native" value={progress()} max="100"></progress>
-        <p class="text-muted">{items.length} Items insgesamt</p>
+        <p class="text-muted">{items.length} Packlisteneinträge insgesamt</p>
         {#if missingItems().length > 0}
           <p class="text-muted">Noch offen: {missingItems().length}</p>
         {:else}
@@ -115,7 +115,7 @@
       <div class="card">
         <h3 class="section-title">Was fehlt noch?</h3>
         {#if missingItems().length === 0}
-          <p class="text-muted">Keine offenen Items.</p>
+          <p class="text-muted">Keine offenen Packlisteneinträge.</p>
         {:else}
           <ul>
             {#each missingItems() as item}
@@ -127,7 +127,7 @@
     </section>
 
     <section class="card">
-      <h3 class="section-title">Items</h3>
+      <h3 class="section-title">Packlisteneinträge</h3>
       <div class="card-grid">
         {#each items as item}
           <article class="card">
@@ -166,10 +166,10 @@
 
     {#if canEdit($session?.role)}
       <section class="card">
-        <h3 class="section-title">Item hinzufügen</h3>
+        <h3 class="section-title">Packlisteneintrag hinzufügen</h3>
         <div class="form-grid">
           <div class="field">
-            <label for="inventory">Inventar</label>
+            <label for="inventory">Material</label>
             <select id="inventory" class="select" bind:value={selectedItem}>
               <option value="">Bitte wählen</option>
               {#each inventory as inv}

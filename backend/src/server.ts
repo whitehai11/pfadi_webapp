@@ -9,6 +9,7 @@ import { applyMigrations } from "./db/migrate-runner.js";
 import { db } from "./db/database.js";
 import { calendarRoutes } from "./api/calendar.routes.js";
 import { inventoryRoutes } from "./api/inventory.routes.js";
+import { boxRoutes } from "./api/box.routes.js";
 import { packlistRoutes } from "./api/packlist.routes.js";
 import { pushRoutes } from "./api/push.routes.js";
 import { adminRoutes } from "./api/admin.routes.js";
@@ -98,7 +99,7 @@ const ensureDefaults = () => {
     "packlist-incomplete",
     48,
     "Packliste unvollständig",
-    "Bei {event.title} fehlen noch Items.",
+    "Bei {event.title} fehlen noch Packlisteneinträge.",
     null,
     { startDate: now.slice(0, 10), every: "daily", time: "09:30" }
   );
@@ -106,14 +107,14 @@ const ensureDefaults = () => {
     "weekly-admin",
     168,
     "Wöchentliche Admin-Erinnerung",
-    "Bitte prüfe offene Packlisten, Inventar und anstehende Termine.",
+    "Bitte prüfe offene Packlisten, Material und anstehende Termine.",
     null,
     { startDate: now.slice(0, 10), every: "weekly", time: "08:00" }
   );
   addDefaultRule(
     "inventory-low",
     0,
-    "Inventar unter Mindestmenge",
+    "Material unter Mindestmenge",
     "{item.name} ist unter der Mindestmenge ({item.quantity}/{item.min_quantity}).",
     null,
     { startDate: now.slice(0, 10), every: "daily", time: "07:30" }
@@ -145,7 +146,6 @@ const ensureDefaults = () => {
     "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING"
   );
   insertSetting.run("nfc_enabled", "false", now);
-  insertSetting.run("qr_enabled", "true", now);
   insertSetting.run("quiet_hours_start", "21:00", now);
   insertSetting.run("quiet_hours_end", "06:00", now);
 
@@ -160,6 +160,7 @@ const ensureDefaults = () => {
 app.register(authRoutes, { prefix: "/api" });
 app.register(calendarRoutes, { prefix: "/api" });
 app.register(inventoryRoutes, { prefix: "/api" });
+app.register(boxRoutes, { prefix: "/api" });
 app.register(packlistRoutes, { prefix: "/api" });
 app.register(pushRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });

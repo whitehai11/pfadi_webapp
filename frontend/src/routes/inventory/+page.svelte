@@ -1,53 +1,39 @@
 ﻿<script lang="ts">
   import { onMount } from "svelte";
-  import QRCode from "qrcode";
   import { apiFetch } from "$lib/api";
   import { session } from "$lib/auth";
-  import { isNfcSupported, writeNfcTag } from "$lib/nfc";
+  import { getBoxTag, isIOS, isNfcSupported, isStandalone, writeNfcTag } from "$lib/nfc";
 
-  let items: any[] = [];
+  let boxes: any[] = [];
+  let ios = false;
+  let standalone = false;
   let loading = true;
   let error = "";
-  let flags = { nfc_enabled: false, qr_enabled: false };
+  let flags = { nfc_enabled: false };
 
-  let name = "";
-  let category = "";
-  let location = "";
-  let quantity = 1;
-  let minQuantity = 0;
-  let condition = "";
+  let boxContent = "";
+  let boxCategory = "";
+  let boxCondition = "";
+  let boxNote = "";
 
   let nfcMessage = "";
+  let boxMessage: Record<string, string> = {};
+  let iosBoxId: string | null = null;
   let activity = { type: "none", message: "Noch keine Änderungen.", time: "" };
-
-  let sortKey = "name";
-  let sortDir = "asc";
-
-  const qrVisible: Record<string, boolean> = {};
-  const qrData: Record<string, string> = {};
-  let showEmptyMessage = false;
 
   const canEdit = (role: string | undefined) => role === "admin" || role === "materialwart";
 
-  const loadItems = async () => {
+  const loadBoxes = async () => {
     loading = true;
     error = "";
     try {
-      const [inventory, settings] = await Promise.all([
-        apiFetch("/api/inventory"),
-        apiFetch("/api/settings").catch(() => [])
-      ]);
-      items = inventory;
-      showEmptyMessage = items.length === 0;
-      if (showEmptyMessage) {
-        setTimeout(() => (showEmptyMessage = false), 3000);
-      }
+      const [settings, boxList] = await Promise.all([apiFetch("/api/settings").catch(() => []), apiFetch("/api/boxes")]);
+      boxes = boxList;
       for (const item of settings) {
         if (item.key === "nfc_enabled") flags.nfc_enabled = item.value === "true";
-        if (item.key === "qr_enabled") flags.qr_enabled = item.value === "true";
       }
     } catch {
-      error = "Inventar konnte nicht geladen werden.";
+      error = "Boxen konnten nicht geladen werden.";
       setTimeout(() => (error = ""), 3000);
     } finally {
       loading = false;
@@ -62,92 +48,73 @@
     };
   };
 
-  const createItem = async () => {
+  const createBox = async () => {
     try {
-      await apiFetch("/api/inventory", {
+      if (!boxContent) return;
+      const details = [
+        boxCategory ? `Kategorie: ${boxCategory}` : "",
+        boxCondition ? `Zustand: ${boxCondition}` : "",
+        boxNote ? `Hinweis: ${boxNote}` : ""
+      ]
+        .filter(Boolean)
+        .join("\n");
+      await apiFetch("/api/boxes", {
         method: "POST",
         body: JSON.stringify({
-          name,
-          category,
-          location,
-          quantity: Number(quantity),
-          min_quantity: Number(minQuantity),
-          condition
+          name: boxContent,
+          description: details || null
         })
       });
-      setActivity("created", `Item angelegt: ${name}`);
-      name = "";
-      category = "";
-      location = "";
-      quantity = 1;
-      minQuantity = 0;
-      condition = "";
-      await loadItems();
+      setActivity("created", `Box angelegt: ${boxContent}`);
+      boxContent = "";
+      boxCategory = "";
+      boxCondition = "";
+      boxNote = "";
+      await loadBoxes();
     } catch {
-      error = "Inventar-Item konnte nicht erstellt werden.";
+      error = "Box konnte nicht angelegt werden.";
     }
   };
 
-  const deleteItem = async (id: string) => {
-    const item = items.find((row) => row.id === id);
-    if (!confirm("Item wirklich löschen?")) return;
-    await apiFetch(`/api/inventory/${id}`, { method: "DELETE" });
-    setActivity("deleted", `Item gelöscht: ${item?.name ?? id}`);
-    await loadItems();
+  const deleteBox = async (id: string) => {
+    if (!confirm("Box wirklich löschen?")) return;
+    await apiFetch(`/api/boxes/${id}`, { method: "DELETE" });
+    setActivity("deleted", "Box gelöscht.");
+    await loadBoxes();
   };
 
-  const writeTagForItem = async (tagId: string | null) => {
-    nfcMessage = "";
-    if (!tagId) {
-      nfcMessage = "Keine Tag-ID verfügbar.";
-      setTimeout(() => (nfcMessage = ""), 3000);
+  const writeBoxTag = async (box: any) => {
+    const tag = box.nfc_tag || getBoxTag(box.id);
+    if (isIOS()) {
+      iosBoxId = box.id;
+      boxMessage[box.id] = "Auf iOS erfolgt das Schreiben über die App NFC Tools.";
       return;
     }
     try {
       if (!isNfcSupported()) {
-        nfcMessage = "NFC wird in diesem Gerät nicht unterstützt.";
-        setTimeout(() => (nfcMessage = ""), 3000);
+        boxMessage[box.id] = "NFC nicht verfügbar.";
         return;
       }
-      await writeNfcTag(tagId);
-      nfcMessage = `Tag geschrieben: ${tagId}`;
-      setTimeout(() => (nfcMessage = ""), 3000);
+      await writeNfcTag(tag);
+      boxMessage[box.id] = "Gespeichert.";
     } catch {
-      nfcMessage = "Tag konnte nicht geschrieben werden.";
-      setTimeout(() => (nfcMessage = ""), 3000);
+      boxMessage[box.id] = "Fehlgeschlagen.";
     }
   };
 
-  const toggleQr = async (item: any) => {
-    if (!item.tag_id) return;
-    if (qrVisible[item.id]) {
-      qrVisible[item.id] = false;
-      return;
-    }
-    if (!qrData[item.id]) {
-      qrData[item.id] = await QRCode.toDataURL(item.tag_id, { margin: 1, width: 140 });
-    }
-    qrVisible[item.id] = true;
+  const openNfcTools = () => {
+    window.location.href = "nfctools://";
   };
 
-  const conditionBadge = (value: string) => {
-    const normalized = value.toLowerCase();
-    if (normalized.includes("gut") || normalized.includes("ok")) return "badge-success";
-    if (normalized.includes("defekt")) return "badge-warning";
-    return "badge-secondary";
+  const openAppStore = () => {
+    window.location.href = "https://apps.apple.com/app/id1252962749";
   };
 
-  const compare = (a: any, b: any) => {
-    const dir = sortDir === "asc" ? 1 : -1;
-    const av = a[sortKey] ?? "";
-    const bv = b[sortKey] ?? "";
-    if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
-    return String(av).localeCompare(String(bv), "de") * dir;
-  };
-
-  $: sortedItems = [...items].sort(compare);
-
-  onMount(loadItems);
+  onMount(() => {
+    ios = isIOS();
+    standalone = isStandalone();
+    loadBoxes();
+  });
 </script>
 
 <section class="card activity-card">
@@ -163,150 +130,87 @@
   </div>
 </section>
 
-<section class="card-grid grid-2">
-  {#if canEdit($session?.role)}
-    <div class="card">
-      <h3 class="section-title">Neues Item</h3>
-      <form class="form-grid" on:submit|preventDefault={createItem}>
-        <div class="field">
-          <label for="name">Name</label>
-          <input id="name" class="input" bind:value={name} required />
-        </div>
-        <div class="field">
-          <label for="category">Kategorie</label>
-          <input id="category" class="input" bind:value={category} required />
-        </div>
-        <div class="field">
-          <label for="location">Lagerort</label>
-          <input id="location" class="input" bind:value={location} required />
-        </div>
-        <div class="field">
-          <label for="quantity">Menge</label>
-          <input id="quantity" class="input" type="number" min="0" bind:value={quantity} />
-        </div>
-        <div class="field">
-          <label for="minQuantity">Mindestmenge</label>
-          <input id="minQuantity" class="input" type="number" min="0" bind:value={minQuantity} />
-        </div>
-        <div class="field">
-          <label for="condition">Zustand</label>
-          <input id="condition" class="input" bind:value={condition} required />
-        </div>
-        {#if flags.nfc_enabled || flags.qr_enabled}
-          <p class="hint">Tag-ID wird automatisch vergeben (z. B. box-001).</p>
-        {/if}
-        <button class="btn btn-primary" type="submit">Item anlegen</button>
-      </form>
-    </div>
-  {/if}
-
-  <div class="card">
-    <h3 class="section-title">Sortierung</h3>
-    <div class="form-grid">
+{#if canEdit($session?.role)}
+  <section class="card">
+    <h3 class="section-title">Box anlegen</h3>
+    <form class="form-grid" on:submit|preventDefault={createBox}>
       <div class="field">
-        <label for="sortKey">Sortieren nach</label>
-        <select id="sortKey" class="select" bind:value={sortKey}>
-          <option value="name">Name</option>
-          <option value="category">Kategorie</option>
-          <option value="location">Lagerort</option>
-          <option value="quantity">Menge</option>
-          <option value="min_quantity">Mindestmenge</option>
-          <option value="condition">Zustand</option>
-          <option value="tag_id">Tag</option>
-        </select>
+        <label for="boxContent">Inhalt</label>
+        <input id="boxContent" class="input" bind:value={boxContent} required />
       </div>
       <div class="field">
-        <label for="sortDir">Richtung</label>
-        <select id="sortDir" class="select" bind:value={sortDir}>
-          <option value="asc">Aufsteigend</option>
-          <option value="desc">Absteigend</option>
-        </select>
+        <label for="boxCategory">Kategorie</label>
+        <input id="boxCategory" class="input" bind:value={boxCategory} />
       </div>
-    </div>
-  </div>
-</section>
+      <div class="field">
+        <label for="boxCondition">Zustand</label>
+        <input id="boxCondition" class="input" bind:value={boxCondition} />
+      </div>
+      <div class="field">
+        <label for="boxNote">Hinweis</label>
+        <input id="boxNote" class="input" bind:value={boxNote} />
+      </div>
+      {#if flags.nfc_enabled}
+        <p class="hint">Kennung wird automatisch vergeben.</p>
+      {/if}
+      <button class="btn btn-primary" type="submit">Box anlegen</button>
+    </form>
+  </section>
+{/if}
 
 <section class="card">
   {#if loading}
-    <p>Lade Inventar...</p>
+    <p>Lade Boxen...</p>
   {:else if error}
     <p>{error}</p>
-  {:else if sortedItems.length === 0 && showEmptyMessage}
-    <p>Kein Inventar vorhanden.</p>
-  {:else}
-    <div class="table-wrap">
-      <table class="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Kategorie</th>
-          <th>Lagerort</th>
-          <th>Menge</th>
-          <th>Mindestmenge</th>
-          <th>Zustand</th>
-          {#if flags.nfc_enabled || flags.qr_enabled}
-            <th>Tag</th>
-          {/if}
-          {#if canEdit($session?.role)}
-            <th>Aktion</th>
-          {/if}
-        </tr>
-      </thead>
-      <tbody>
-        {#each sortedItems as item}
-          <tr>
-            <td>{item.name}</td>
-            <td><span class="badge badge-secondary">{item.category}</span></td>
-            <td>{item.location}</td>
-            <td>{item.quantity}</td>
-            <td>{item.min_quantity}</td>
-            <td>
-              <div class="cell-stack">
-                <span class={`badge ${conditionBadge(item.condition)}`}>{item.condition}</span>
-                <div class="cell-actions">
-                  {#if flags.nfc_enabled}
-                    <button class="btn btn-outline" type="button" on:click={() => writeTagForItem(item.tag_id)}>
-                      NFC schreiben
-                    </button>
-                  {/if}
-                  {#if flags.qr_enabled}
-                    <button class="btn btn-outline" type="button" on:click={() => toggleQr(item)}>
-                      QR-Code
-                    </button>
-                  {/if}
-                </div>
-              </div>
-            </td>
-            {#if flags.nfc_enabled || flags.qr_enabled}
-              <td>{item.tag_id ?? "-"}</td>
-            {/if}
+  {:else if boxes.length > 0}
+    <div class="card-grid">
+      {#each boxes as box}
+        <div class="card">
+          <div class="actions actions-between">
+            <div>
+              <strong>{box.name}</strong>
+              {#if box.description}
+                <p class="text-muted preline">{box.description}</p>
+              {/if}
+            </div>
             {#if canEdit($session?.role)}
-              <td>
-                <button class="icon-btn" type="button" on:click={() => deleteItem(item.id)} aria-label="Löschen">
-                  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="currentColor" d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z"/>
-                  </svg>
-                </button>
-              </td>
+              <button class="icon-btn" type="button" on:click={() => deleteBox(box.id)} aria-label="Löschen">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
+                  <path fill="currentColor" d="M6 7h12l-1 14H7L6 7zm3-3h6l1 2H8l1-2z"/>
+                </svg>
+              </button>
             {/if}
-          </tr>
-          {#if flags.qr_enabled && qrVisible[item.id]}
-            <tr class="qr-row">
-              <td
-                colspan={canEdit($session?.role)
-                  ? (flags.nfc_enabled || flags.qr_enabled ? 8 : 7)
-                  : (flags.nfc_enabled || flags.qr_enabled ? 7 : 6)}
-              >
-                <div class="qr-box">
-                  <img src={qrData[item.id]} alt={`QR-Code ${item.tag_id}`} />
-                  <span class="hint">{item.tag_id}</span>
-                </div>
-              </td>
-            </tr>
+          </div>
+          <div class="actions">
+            <span class="badge badge-secondary">{box.nfc_tag}</span>
+            {#if flags.nfc_enabled}
+              <button class="btn btn-outline" type="button" on:click={() => writeBoxTag(box)}>
+                NFC auf Box schreiben
+              </button>
+            {/if}
+          </div>
+          {#if ios && iosBoxId === box.id}
+            <div class="card">
+              <p>Auf iOS erfolgt das Schreiben über die App NFC Tools.</p>
+              <p>Der folgende Wert muss geschrieben werden:</p>
+              <p class="hint">{box.nfc_tag}</p>
+              <p class="text-muted">Web-App-Modus: {standalone ? "Aktiv" : "Inaktiv"}</p>
+              <div class="actions">
+                <button class="btn btn-outline" type="button" on:click={openNfcTools}>
+                  NFC Tools öffnen
+                </button>
+                <button class="btn btn-outline" type="button" on:click={openAppStore}>
+                  App Store öffnen
+                </button>
+              </div>
+            </div>
           {/if}
-        {/each}
-      </tbody>
-      </table>
+          {#if boxMessage[box.id]}
+            <p class="hint">{boxMessage[box.id]}</p>
+          {/if}
+        </div>
+      {/each}
     </div>
   {/if}
 </section>

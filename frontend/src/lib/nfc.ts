@@ -16,7 +16,22 @@ export const readNfcTag = async (): Promise<string> => {
 };
 
 export const writeNfcTag = async (payload: string) => {
+  if (!isNfcSupported()) {
+    throw new Error("NFC nicht verfügbar");
+  }
   // @ts-ignore
   const writer = new NDEFReader();
   await writer.write(payload);
 };
+
+export const isIOS = () => {
+  const ua = navigator.userAgent;
+  return /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+};
+
+export const isStandalone = () =>
+  window.matchMedia("(display-mode: standalone)").matches ||
+  // @ts-ignore
+  navigator.standalone === true;
+
+export const getBoxTag = (id: string) => `pfadi-box:${id}`;

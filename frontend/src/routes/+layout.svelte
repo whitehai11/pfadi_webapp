@@ -62,9 +62,8 @@
       <nav class="nav">
           <a href="/">Übersicht</a>
         <a href="/calendar">Kalender</a>
-        <a href="/inventory">Inventar</a>
+        <a href="/inventory">Material</a>
         <a href="/nfc">NFC</a>
-        <a href="/qr">QR</a>
         <a href="/packlists">Packlisten</a>
           <a href="/settings">Einstellungen</a>
           {#if $session?.role === 'admin'}
@@ -73,7 +72,7 @@
         </nav>
         <div class="user-menu">
           <span>{$session.username} ({roleLabel($session.role)})</span>
-          <button class="btn btn-outline" on:click={clearToken}>Logout</button>
+          <button class="btn btn-outline" on:click={clearToken}>Abmeldung</button>
         </div>
       </div>
     </header>

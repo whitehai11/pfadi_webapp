@@ -26,10 +26,10 @@ export type InventoryInput = {
 
 const isTaggingEnabled = () => {
   const rows = db
-    .prepare("SELECT key, value FROM settings WHERE key IN ('nfc_enabled','qr_enabled')")
+    .prepare("SELECT key, value FROM settings WHERE key IN ('nfc_enabled')")
     .all() as { key: string; value: string }[];
   const map = new Map(rows.map((row) => [row.key, row.value]));
-  return map.get("nfc_enabled") === "true" || map.get("qr_enabled") === "true";
+  return map.get("nfc_enabled") === "true";
 };
 
 const nextBoxTag = () => {

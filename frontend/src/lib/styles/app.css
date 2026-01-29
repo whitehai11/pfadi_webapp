@@ -290,6 +290,10 @@ svg {
   color: var(--color-text-muted);
 }
 
+.preline {
+  white-space: pre-line;
+}
+
 .activity-card {
   padding: 0;
   overflow: hidden;
@@ -329,24 +333,6 @@ svg {
   flex-wrap: wrap;
 }
 
-.qr-row td {
-  background: #f8fafc;
-}
-
-.qr-box {
-  display: inline-flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0.8rem;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  background: #fff;
-}
-
-.qr-box img {
-  width: 120px;
-  height: 120px;
-}
 
 .empty-state {
   text-align: left;
@@ -392,22 +378,6 @@ svg {
   }
 }
 
-.qr-camera {
-  width: 100%;
-  max-width: 520px;
-  margin-top: 1rem;
-  border-radius: 16px;
-  overflow: hidden;
-  border: 1px solid var(--color-border);
-  background: #0f172a;
-  aspect-ratio: 4 / 3;
-}
-
-.qr-camera video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
 
 .actions-between {
   justify-content: space-between;
