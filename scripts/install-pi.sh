@@ -85,33 +85,96 @@ get_env() {
   grep -E "^${key}=" .env | head -n1 | cut -d= -f2-
 }
 
-if [[ -z "$(get_env JWT_SECRET)" || "$PROMPT_ENV" == "1" ]]; then
-  read -rp "JWT_SECRET (leer = automatisch generieren): " JWT_SECRET
-  if [[ -z "$JWT_SECRET" ]]; then
-    JWT_SECRET=$(openssl rand -hex 32)
+prompt_value() {
+  local key="$1"
+  local current="$2"
+  local label="$3"
+  local value=""
+  if [[ "$PROMPT_ENV" == "1" ]]; then
+    if [[ -n "$current" ]]; then
+      read -rp "${label} [${current}]: " value
+      value="${value:-$current}"
+    else
+      read -rp "${label}: " value
+    fi
+  else
+    value="$current"
   fi
-  set_env "JWT_SECRET" "$JWT_SECRET"
-fi
+  echo "$value"
+}
 
-if [[ -z "$(get_env BASE_URL)" || "$PROMPT_ENV" == "1" ]]; then
-  read -rp "BASE_URL (z. B. https://pfadi.example.org): " BASE_URL
-  set_env "BASE_URL" "$BASE_URL"
-fi
+prompt_from_example() {
+  local example_file=".env.example"
+  if [[ ! -f "$example_file" ]]; then
+    return
+  fi
+  while IFS= read -r line; do
+    if [[ -z "$line" || "$line" =~ ^# ]]; then
+      continue
+    fi
+    local key="${line%%=*}"
+    local current
+    current="$(get_env "$key")"
+    case "$key" in
+      JWT_SECRET)
+        if [[ "$PROMPT_ENV" == "1" ]]; then
+          read -rp "JWT_SECRET (leer = automatisch generieren): " JWT_SECRET
+        fi
+        if [[ -z "${JWT_SECRET:-}" ]]; then
+          JWT_SECRET=$(openssl rand -hex 32)
+        fi
+        set_env "JWT_SECRET" "$JWT_SECRET"
+        ;;
+      VAPID_PUBLIC_KEY|VAPID_PRIVATE_KEY)
+        if [[ -z "$(get_env VAPID_PUBLIC_KEY)" || -z "$(get_env VAPID_PRIVATE_KEY)" ]]; then
+          echo "Generating VAPID keys..."
+          chmod +x scripts/generate-vapid.sh || true
+          bash ./scripts/generate-vapid.sh > /tmp/vapid.json
+          VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.publicKey)")
+          VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.privateKey)")
+          set_env "VAPID_PUBLIC_KEY" "$VAPID_PUBLIC_KEY"
+          set_env "VAPID_PRIVATE_KEY" "$VAPID_PRIVATE_KEY"
+        fi
+        ;;
+      *)
+        case "$key" in
+          PORT)
+            value="$(prompt_value "$key" "$current" "PORT")"
+            ;;
+          HOST)
+            value="$(prompt_value "$key" "$current" "HOST")"
+            ;;
+          DATABASE_PATH)
+            value="$(prompt_value "$key" "$current" "DATABASE_PATH")"
+            ;;
+          DATA_DIR)
+            value="$(prompt_value "$key" "$current" "DATA_DIR")"
+            ;;
+          ALLOWED_ORIGINS)
+            value="$(prompt_value "$key" "$current" "ALLOWED_ORIGINS")"
+            ;;
+          BASE_URL)
+            value="$(prompt_value "$key" "$current" "BASE_URL")"
+            ;;
+          ADMIN_EMAILS)
+            value="$(prompt_value "$key" "$current" "Admin-Benutzername(n), kommasepariert")"
+            ;;
+          VAPID_SUBJECT)
+            value="$(prompt_value "$key" "$current" "VAPID_SUBJECT")"
+            ;;
+          *)
+            value="$(prompt_value "$key" "$current" "$key")"
+            ;;
+        esac
+        if [[ -n "$value" ]]; then
+          set_env "$key" "$value"
+        fi
+        ;;
+    esac
+  done < "$example_file"
+}
 
-if [[ -z "$(get_env ADMIN_EMAILS)" || "$PROMPT_ENV" == "1" ]]; then
-  read -rp "Admin-Benutzername(n), kommasepariert (z. B. maro,alex): " ADMIN_EMAILS
-  set_env "ADMIN_EMAILS" "$ADMIN_EMAILS"
-fi
-
-if [[ -z "$(get_env VAPID_PUBLIC_KEY)" || -z "$(get_env VAPID_PRIVATE_KEY)" ]]; then
-  echo "Generating VAPID keys..."
-  chmod +x scripts/generate-vapid.sh || true
-  bash ./scripts/generate-vapid.sh > /tmp/vapid.json
-  VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.publicKey)")
-  VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.privateKey)")
-  set_env "VAPID_PUBLIC_KEY" "$VAPID_PUBLIC_KEY"
-  set_env "VAPID_PRIVATE_KEY" "$VAPID_PRIVATE_KEY"
-fi
+prompt_from_example
 
 sudo mkdir -p nginx/certs
 
