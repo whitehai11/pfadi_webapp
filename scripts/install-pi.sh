@@ -129,9 +129,12 @@ prompt_from_example() {
         if [[ -z "$(get_env VAPID_PUBLIC_KEY)" || -z "$(get_env VAPID_PRIVATE_KEY)" ]]; then
           echo "Generating VAPID keys..."
           chmod +x scripts/generate-vapid.sh || true
-          bash ./scripts/generate-vapid.sh > /tmp/vapid.json
-          VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.publicKey)")
-          VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/tmp/vapid.json','utf8'));console.log(d.privateKey)")
+          tmpdir="${TMPDIR:-/tmp}/pfadi"
+          mkdir -p "$tmpdir"
+          chmod 777 "$tmpdir" || true
+          bash ./scripts/generate-vapid.sh > "$tmpdir/vapid.json"
+          VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.publicKey)" VAPID_JSON="$tmpdir/vapid.json")
+          VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.privateKey)" VAPID_JSON="$tmpdir/vapid.json")
           set_env "VAPID_PUBLIC_KEY" "$VAPID_PUBLIC_KEY"
           set_env "VAPID_PRIVATE_KEY" "$VAPID_PRIVATE_KEY"
         fi
