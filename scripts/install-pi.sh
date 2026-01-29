@@ -133,8 +133,10 @@ prompt_from_example() {
           mkdir -p "$tmpdir"
           chmod 777 "$tmpdir" || true
           bash ./scripts/generate-vapid.sh > "$tmpdir/vapid.json"
-          VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.publicKey)" VAPID_JSON="$tmpdir/vapid.json")
-          VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.privateKey)" VAPID_JSON="$tmpdir/vapid.json")
+          VAPID_JSON="$tmpdir/vapid.json"
+          export VAPID_JSON
+          VAPID_PUBLIC_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.publicKey)")
+          VAPID_PRIVATE_KEY=$(node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync(process.env.VAPID_JSON,'utf8'));console.log(d.privateKey)")
           set_env "VAPID_PUBLIC_KEY" "$VAPID_PUBLIC_KEY"
           set_env "VAPID_PRIVATE_KEY" "$VAPID_PRIVATE_KEY"
         fi
