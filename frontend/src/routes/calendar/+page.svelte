@@ -206,7 +206,6 @@
   {:else if events.length === 0}
     <div class="card empty-state">
       <h3 class="section-title">Noch keine Termine</h3>
-      <p class="text-muted">Sobald ein Termin angelegt ist, erscheint er hier mit Teilnahme und Packliste.</p>
       <div class="actions">
         <a class="btn btn-outline" href={webcalUrl}>Kalender abonnieren</a>
         {#if $session?.role === 'admin'}

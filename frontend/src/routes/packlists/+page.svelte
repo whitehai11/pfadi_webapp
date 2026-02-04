@@ -23,7 +23,6 @@
 
 <section class="card">
   <h2 class="page-title">Packlisten</h2>
-  <p class="text-muted">Packlisten sind pro Termin verfügbar. Pflicht bei Lagern.</p>
 </section>
 
 <section class="card-grid">
