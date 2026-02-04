@@ -41,3 +41,45 @@ sw.addEventListener("fetch", (event) => {
     })
   );
 });
+
+const getPushPayload = (event: PushEvent) => {
+  if (!event.data) return { title: "Benachrichtigung", body: "Neue Benachrichtigung." };
+  try {
+    const data = event.data.json() as { title?: string; body?: string; url?: string };
+    return {
+      title: data.title || "Benachrichtigung",
+      body: data.body || "Neue Benachrichtigung.",
+      url: data.url
+    };
+  } catch {
+    const text = event.data.text();
+    return { title: "Benachrichtigung", body: text || "Neue Benachrichtigung." };
+  }
+};
+
+sw.addEventListener("push", (event) => {
+  const payload = getPushPayload(event);
+  event.waitUntil(
+    sw.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: "/icon.svg",
+      badge: "/icon.svg",
+      data: { url: payload.url || "/" }
+    })
+  );
+});
+
+sw.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    sw.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
+      for (const client of clientsArr) {
+        if ("focus" in client && client.url.includes(target)) {
+          return client.focus();
+        }
+      }
+      if (sw.clients.openWindow) return sw.clients.openWindow(target);
+    })
+  );
+});
