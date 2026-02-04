@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { requireAuth } from "../utils/guards.js";
+import { requireAdmin, requireAuth } from "../utils/guards.js";
 import { settings } from "../config/settings.js";
-import { deleteSubscription, saveSubscription } from "../services/push.service.js";
+import { deleteSubscription, saveSubscription, sendToUser } from "../services/push.service.js";
 
 const subscriptionSchema = z.object({
   endpoint: z.string().min(1),
@@ -35,5 +35,15 @@ export const pushRoutes = async (app: FastifyInstance) => {
     const user = request.user as { id: string };
     const ok = deleteSubscription(user.id, parsed.data.endpoint);
     return reply.send({ ok });
+  });
+
+  app.post("/push/test", { preHandler: requireAdmin }, async (request, reply) => {
+    const user = request.user as { id: string };
+    await sendToUser(user.id, {
+      title: "Test-Benachrichtigung",
+      body: "Dies ist eine Test-Benachrichtigung.",
+      type: "test"
+    });
+    return reply.send({ ok: true });
   });
 };

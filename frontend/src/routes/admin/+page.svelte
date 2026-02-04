@@ -7,6 +7,7 @@
   let settings: any[] = [];
   let rules: any[] = [];
   let error = "";
+  let pushTestMessage = "";
   let quietStart = "21:00";
   let quietEnd = "06:00";
 
@@ -92,6 +93,16 @@
       { key: "quiet_hours_end", value: quietEnd }
     ];
     await saveSettings(updated);
+  };
+
+  const sendTestPush = async () => {
+    pushTestMessage = "";
+    try {
+      await apiFetch("/api/push/test", { method: "POST" });
+      pushTestMessage = "Aktion erfolgreich abgeschlossen.";
+    } catch {
+      pushTestMessage = "Fehlgeschlagen.";
+    }
   };
 
   const toggleSetting = async (key: string, value: boolean) => {
@@ -240,8 +251,14 @@
           <h3 class="section-title">Push-Regeln</h3>
           <p class="text-muted">Regeln für Push-Benachrichtigungen</p>
         </div>
-        <button class="btn btn-outline" on:click={addRule}>Neue Regel</button>
+        <div class="actions">
+          <button class="btn btn-outline" on:click={sendTestPush}>Test-Benachrichtigung</button>
+          <button class="btn btn-outline" on:click={addRule}>Neue Regel</button>
+        </div>
       </div>
+      {#if pushTestMessage}
+        <p class="text-muted">{pushTestMessage}</p>
+      {/if}
       <div class="card-grid">
         {#each rules as rule}
           <div class="card">
