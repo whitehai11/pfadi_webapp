@@ -45,7 +45,6 @@
     <div class="card-grid grid-2">
       <div>
         <p><strong>Name:</strong> {box.name}</p>
-        <p><strong>Beschreibung:</strong> {box.description || "-"}</p>
       </div>
       <div>
         <p><strong>Kennung:</strong> {box.nfc_tag}</p>
