@@ -1,4 +1,4 @@
-<script lang="ts">
+﻿<script lang="ts">
   import { onMount } from "svelte";
   import { get } from "svelte/store";
   import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
@@ -7,6 +7,7 @@
   import "$lib/styles/app.css";
 
   let isReady = false;
+  let navOpen = false;
 
   const requestInitialPermissions = async () => {
     const permissionKey = "pfadi_permissions_requested";
@@ -45,6 +46,10 @@
     await requestInitialPermissions();
     isReady = true;
   });
+
+  $: if (!get(session)) {
+    navOpen = false;
+  }
 </script>
 
 <svelte:head>
@@ -59,12 +64,22 @@
   {#if $session}
     <header class="topbar">
       <div class="topbar-inner">
-      <nav class="nav">
+        <button
+          class="nav-toggle"
+          type="button"
+          aria-expanded={navOpen}
+          aria-controls="main-nav"
+          on:click={() => (navOpen = !navOpen)}
+        >
+          <span class="nav-toggle-icon" aria-hidden="true"></span>
+          Menü
+        </button>
+        <nav id="main-nav" class={`nav ${navOpen ? "nav--open" : ""}`}>
           <a href="/">Übersicht</a>
-        <a href="/calendar">Kalender</a>
-        <a href="/inventory">Material</a>
-        <a href="/nfc">NFC</a>
-        <a href="/packlists">Packlisten</a>
+          <a href="/calendar">Kalender</a>
+          <a href="/inventory">Material</a>
+          <a href="/nfc">NFC</a>
+          <a href="/packlists">Packlisten</a>
           <a href="/settings">Einstellungen</a>
           {#if $session?.role === 'admin'}
             <a href="/admin">Admin</a>
@@ -82,3 +97,4 @@
     <slot />
   </main>
 </div>
+
