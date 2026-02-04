@@ -3,10 +3,8 @@
   import { get } from "svelte/store";
   import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
   import { registerPush } from "$lib/push";
-  import LoadingScreen from "$lib/components/LoadingScreen.svelte";
   import "$lib/styles/app.css";
 
-  let isReady = false;
   let navOpen = false;
 
   const requestInitialPermissions = async () => {
@@ -44,7 +42,6 @@
       }
     }
     await requestInitialPermissions();
-    isReady = true;
   });
 
   $: if (!get(session)) {
@@ -55,10 +52,6 @@
 <svelte:head>
   <title>Pfadfinder Orga</title>
 </svelte:head>
-
-{#if !isReady}
-  <LoadingScreen />
-{/if}
 
 <div class="app-shell">
   {#if $session}
