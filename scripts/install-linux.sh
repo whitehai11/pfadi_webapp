@@ -8,7 +8,7 @@ INSTALL_NODE=${INSTALL_NODE:-1}
 CONFIGURE_FIREWALL=${CONFIGURE_FIREWALL:-1}
 START_STACK=${START_STACK:-1}
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TTY_INPUT="/dev/tty"
 
 log() {
   printf '[pfadi-install] %s\n' "$*"
@@ -23,8 +23,14 @@ fail() {
   exit 1
 }
 
+if [[ ! -r "$TTY_INPUT" ]]; then
+  TTY_INPUT=""
+fi
+
 if [[ -z "$REPO_URL" ]]; then
-  read -rp "Git-Repo URL: " REPO_URL
+  if [[ -n "$TTY_INPUT" ]]; then
+    read -rp "Git-Repo URL: " REPO_URL < "$TTY_INPUT"
+  fi
 fi
 
 [[ -n "$REPO_URL" ]] || fail "REPO_URL fehlt."
@@ -193,10 +199,14 @@ prompt_value() {
 
   if [[ "$PROMPT_ENV" == "1" ]]; then
     if [[ -n "$current" ]]; then
-      read -rp "${label} [${current}]: " value
+      if [[ -n "$TTY_INPUT" ]]; then
+        read -rp "${label} [${current}]: " value < "$TTY_INPUT"
+      fi
       value="${value:-$current}"
     else
-      read -rp "${label}: " value
+      if [[ -n "$TTY_INPUT" ]]; then
+        read -rp "${label}: " value < "$TTY_INPUT"
+      fi
     fi
   else
     value="$current"
@@ -240,7 +250,9 @@ configure_env() {
   jwt_secret="$(get_env "$env_file" "JWT_SECRET")"
   if [[ -z "$jwt_secret" || "$jwt_secret" == "change-me-very-long" ]]; then
     if [[ "$PROMPT_ENV" == "1" ]]; then
-      read -rp "JWT_SECRET (leer = automatisch generieren): " jwt_secret
+      if [[ -n "$TTY_INPUT" ]]; then
+        read -rp "JWT_SECRET (leer = automatisch generieren): " jwt_secret < "$TTY_INPUT"
+      fi
     fi
     jwt_secret="${jwt_secret:-$(openssl rand -hex 32)}"
     set_env "$env_file" "JWT_SECRET" "$jwt_secret"
@@ -344,6 +356,11 @@ EOF
 
 main() {
   log "Starte Installer fuer Ubuntu/Debian..."
+
+  if [[ "$PROMPT_ENV" == "1" && -z "$TTY_INPUT" ]]; then
+    warn "Kein interaktives Terminal erkannt. Uebernehme vorhandene oder Default-.env-Werte."
+  fi
+
   ensure_base_packages
   configure_docker_repo
   ensure_docker_running
