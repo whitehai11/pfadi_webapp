@@ -25,22 +25,30 @@ npm install
 npm run dev
 ```
 
-## Docker (Produktion / Pi)
+## Docker (Produktion / Linux)
 
 ```bash
 docker-compose up -d --build
 ```
 
-## Raspberry Pi Installation
+## Linux Installation (Ubuntu / Debian / Raspberry Pi OS)
 
-1. Repository-URL setzen und Skript ausfuehren:
+1. Repository-URL setzen und Installer ausfuehren:
 
 ```bash
 export REPO_URL=https://github.com/eure-org/pfadi-orga.git
-./scripts/install-pi.sh
+./scripts/install-linux.sh
 ```
 
-2. `.env` anpassen (siehe `.env.example`):
+Der alte Einstiegspunkt `./scripts/install-pi.sh` bleibt als Kompatibilitaets-Wrapper erhalten.
+
+2. Optional steuerbar per Umgebungsvariablen:
+- `PROJECT_DIR=/opt/pfadi-orga`
+- `PROMPT_ENV=0` fuer non-interaktive Uebernahme bestehender Werte
+- `CONFIGURE_FIREWALL=0` falls UFW nicht angepasst werden soll
+- `START_STACK=0` wenn Container noch nicht gestartet werden sollen
+
+3. `.env` anpassen (siehe `.env.example`), falls du Werte spaeter manuell aendern willst:
 - `JWT_SECRET`
 - `BASE_URL`
 - `ADMIN_EMAILS`
