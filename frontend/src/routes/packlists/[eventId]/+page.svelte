@@ -1,8 +1,10 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { page } from "$app/stores";
+  import Card from "$lib/components/Card.svelte";
+  import SegmentedControl from "$lib/components/SegmentedControl.svelte";
   import { apiFetch } from "$lib/api";
   import { session } from "$lib/auth";
-  import { page } from "$app/stores";
 
   let packlist: any = null;
   let items: any[] = [];
@@ -12,6 +14,12 @@
 
   let selectedItem = "";
   let status = "missing";
+
+  const statusOptions = [
+    { value: "missing", label: "Fehlt" },
+    { value: "prepared", label: "Vorbereitet" },
+    { value: "packed", label: "Gepackt" }
+  ];
 
   $: eventId = $page.params.eventId;
 
@@ -80,94 +88,93 @@
   onMount(load);
 </script>
 
-<section class="card">
-  <h2 class="page-title">Packliste</h2>
-  {#if error}
-    <p class="text-muted">{error}</p>
-  {/if}
-</section>
+<div class="page-stack">
+  <section class="page-intro">
+    <p class="page-kicker">Packliste</p>
+    <h1 class="page-title">Material für einen Termin gezielt vorbereiten.</h1>
+    <p class="page-description">Fortschritt, fehlende Einträge und Statusänderungen liegen in einer kompakten Übersicht.</p>
+  </section>
 
-{#if loading}
-  <div class="card">Lade Packliste...</div>
-{:else}
-  {#if !packlist}
-    <div class="card">
-      <p>Keine Packliste vorhanden.</p>
+  {#if error}
+    <p class="status-banner error">{error}</p>
+  {/if}
+
+  {#if loading}
+    <Card title="Packliste" description="Die Daten werden geladen.">
+      <p class="text-muted">Einen Moment bitte…</p>
+    </Card>
+  {:else if !packlist}
+    <Card title="Keine Packliste vorhanden" description="Für diesen Termin wurde noch keine Packliste angelegt.">
       {#if canEdit($session?.role)}
-        <button class="btn btn-primary" on:click={createPacklist}>Packliste erstellen</button>
-      {/if}
-    </div>
-  {:else}
-    <section class="card-grid grid-2">
-      <div class="card">
-        <div class="actions actions-between">
-          <h3 class="section-title">Fortschritt</h3>
-          <span class="badge badge-secondary">{progress()}%</span>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" on:click={createPacklist}>Packliste erstellen</button>
         </div>
-        <progress class="progress-native" value={progress()} max="100"></progress>
-        <p class="text-muted">{items.length} Packlisteneinträge insgesamt</p>
-        {#if missingItems().length > 0}
-          <p class="text-muted">Noch offen: {missingItems().length}</p>
-        {:else}
-          <p class="text-muted">Alles gepackt.</p>
-        {/if}
-      </div>
-      <div class="card">
-        <h3 class="section-title">Was fehlt noch?</h3>
+      {/if}
+    </Card>
+  {:else}
+    <section class="split-grid">
+      <Card title="Fortschritt" description="Wie weit die Vorbereitung bereits fortgeschritten ist.">
+        <div class="metric">
+          <div class="metric__row">
+            <span class="metric__value">{progress()}%</span>
+            <span class="badge badge-secondary">{items.length} Einträge</span>
+          </div>
+          <progress class="progress-native" value={progress()} max="100"></progress>
+          <p class="text-muted">
+            {#if missingItems().length > 0}
+              Noch offen: {missingItems().length}
+            {:else}
+              Alles gepackt.
+            {/if}
+          </p>
+        </div>
+      </Card>
+
+      <Card title="Offene Punkte" description="Material, das noch vorbereitet oder gepackt werden muss.">
         {#if missingItems().length === 0}
-          <p class="text-muted">Keine offenen Packlisteneinträge.</p>
+          <p class="text-muted">Keine offenen Einträge.</p>
         {:else}
-          <ul>
+          <div class="hairline-list">
             {#each missingItems() as item}
-              <li>{inventory.find((i) => i.id === item.inventory_item_id)?.name ?? item.inventory_item_id}</li>
+              <div class="list-row">
+                <div class="list-meta">
+                  <strong>{inventory.find((entry) => entry.id === item.inventory_item_id)?.name ?? item.inventory_item_id}</strong>
+                </div>
+                <span class={`badge ${statusBadge(item.status)}`}>{item.status}</span>
+              </div>
             {/each}
-          </ul>
+          </div>
         {/if}
-      </div>
+      </Card>
     </section>
 
-    <section class="card">
-      <h3 class="section-title">Packlisteneinträge</h3>
+    <Card title="Packlisteneinträge" description="Jeder Eintrag lässt sich direkt im jeweiligen Status aktualisieren.">
       <div class="card-grid">
         {#each items as item}
-          <article class="card">
-            <div class="actions actions-between">
-              <strong>
-                {inventory.find((i) => i.id === item.inventory_item_id)?.name ?? item.inventory_item_id}
-              </strong>
-              <span class={`badge ${statusBadge(item.status)}`}>
-                {#if item.status === 'packed'}
-                  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="currentColor" d="M9 16.2l-3.5-3.5 1.4-1.4L9 13.4l8.7-8.7 1.4 1.4z"/>
-                  </svg>
-                {:else if item.status === 'prepared'}
-                  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="currentColor" d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm0-6a10 10 0 1 1 0 20 10 10 0 0 1 0-20z"/>
-                  </svg>
-                {:else}
-                  <svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="currentColor" d="M12 2l9 18H3L12 2zm0 7v4h-1.5V9H12zm0 6v2h-1.5v-2H12z"/>
-                  </svg>
-                {/if}
-                {item.status}
-              </span>
+          <Card
+            title={inventory.find((entry) => entry.id === item.inventory_item_id)?.name ?? item.inventory_item_id}
+            description="Status des Materials für diesen Termin."
+            interactive={true}
+          >
+            <div slot="actions">
+              <span class={`badge ${statusBadge(item.status)}`}>{item.status}</span>
             </div>
+
             {#if canEdit($session?.role)}
               <div class="actions">
-                <button class="btn btn-outline" on:click={() => updateStatus(item.id, 'missing')}>Fehlt</button>
-                <button class="btn btn-outline" on:click={() => updateStatus(item.id, 'prepared')}>Vorbereitet</button>
-                <button class="btn btn-primary" on:click={() => updateStatus(item.id, 'packed')}>Gepackt</button>
+                <button class="btn btn-outline" type="button" on:click={() => updateStatus(item.id, "missing")}>Fehlt</button>
+                <button class="btn btn-outline" type="button" on:click={() => updateStatus(item.id, "prepared")}>Vorbereitet</button>
+                <button class="btn btn-primary" type="button" on:click={() => updateStatus(item.id, "packed")}>Gepackt</button>
               </div>
             {/if}
-          </article>
+          </Card>
         {/each}
       </div>
-    </section>
+    </Card>
 
     {#if canEdit($session?.role)}
-      <section class="card">
-        <h3 class="section-title">Packlisteneintrag hinzufügen</h3>
-        <div class="form-grid">
+      <Card title="Eintrag hinzufügen" description="Material auswählen und den Ausgangsstatus festlegen.">
+        <div class="split-grid">
           <div class="field">
             <label for="inventory">Material</label>
             <select id="inventory" class="select" bind:value={selectedItem}>
@@ -177,17 +184,17 @@
               {/each}
             </select>
           </div>
+
           <div class="field">
-            <label for="status">Status</label>
-            <select id="status" class="select" bind:value={status}>
-              <option value="missing">Fehlt</option>
-              <option value="prepared">Vorbereitet</option>
-              <option value="packed">Gepackt</option>
-            </select>
+            <p class="fieldset-label">Status</p>
+            <SegmentedControl bind:value={status} options={statusOptions} ariaLabel="Status für neuen Packlisteneintrag" />
           </div>
-          <button class="btn btn-primary" on:click={addItem}>Hinzufügen</button>
         </div>
-      </section>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="button" on:click={addItem}>Hinzufügen</button>
+        </div>
+      </Card>
     {/if}
   {/if}
-{/if}
+</div>

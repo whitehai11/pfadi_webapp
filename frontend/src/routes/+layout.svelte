@@ -1,11 +1,22 @@
-﻿<script lang="ts">
-  import { onMount } from "svelte";
-  import { get } from "svelte/store";
+<script lang="ts">
+  import { page } from "$app/stores";
+  import Navigation from "$lib/components/Navigation.svelte";
   import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
   import { registerPush } from "$lib/push";
   import "$lib/styles/app.css";
+  import { onMount } from "svelte";
+  import { get } from "svelte/store";
 
   let navOpen = false;
+
+  const navItems = [
+    { href: "/", label: "Übersicht", icon: "home" as const },
+    { href: "/calendar", label: "Kalender", icon: "calendar" as const },
+    { href: "/inventory", label: "Material", icon: "inventory" as const },
+    { href: "/nfc", label: "NFC", icon: "nfc" as const },
+    { href: "/packlists", label: "Packlisten", icon: "packlist" as const },
+    { href: "/settings", label: "Einstellungen", icon: "settings" as const }
+  ];
 
   const requestInitialPermissions = async () => {
     const permissionKey = "pfadi_permissions_requested";
@@ -55,39 +66,23 @@
 
 <div class="app-shell">
   {#if $session}
-    <header class="topbar">
-      <div class="topbar-inner">
-        <button
-          class="nav-toggle"
-          type="button"
-          aria-expanded={navOpen}
-          aria-controls="main-nav"
-          on:click={() => (navOpen = !navOpen)}
-        >
-          <span class="nav-toggle-icon" aria-hidden="true"></span>
-          Menü
-        </button>
-        <nav id="main-nav" class={`nav ${navOpen ? "nav--open" : ""}`}>
-          <a href="/">Übersicht</a>
-          <a href="/calendar">Kalender</a>
-          <a href="/inventory">Material</a>
-          <a href="/nfc">NFC</a>
-          <a href="/packlists">Packlisten</a>
-          <a href="/settings">Einstellungen</a>
-          {#if $session?.role === 'admin'}
-            <a href="/admin">Admin</a>
-          {/if}
-        </nav>
-        <div class="user-menu">
-          <span>{$session.username} ({roleLabel($session.role)})</span>
-          <button class="btn btn-outline" on:click={clearToken}>Abmeldung</button>
-        </div>
-      </div>
-    </header>
+    <Navigation
+      items={[
+        ...navItems,
+        ...($session.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin" as const }] : [])
+      ]}
+      currentPath={$page.url.pathname}
+      username={$session.username}
+      role={roleLabel($session.role)}
+      open={navOpen}
+      onToggle={() => (navOpen = !navOpen)}
+      onLogout={clearToken}
+    />
   {/if}
 
-  <main class={$session ? "container" : "auth-container"}>
-    <slot />
+  <main class={$session ? "app-main" : "auth-main"}>
+    <div class={$session ? "page-shell" : "auth-shell"}>
+      <slot />
+    </div>
   </main>
 </div>
-

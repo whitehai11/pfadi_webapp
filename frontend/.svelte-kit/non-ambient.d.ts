@@ -27,7 +27,7 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/admin" | "/calendar" | "/inventory" | "/nfc" | "/packlists" | "/packlists/[eventId]" | "/qr" | "/settings";
+		RouteId(): "/" | "/admin" | "/calendar" | "/inventory" | "/nfc" | "/packlists" | "/packlists/[eventId]" | "/settings";
 		RouteParams(): {
 			"/packlists/[eventId]": { eventId: string }
 		};
@@ -39,10 +39,9 @@ declare module "$app/types" {
 			"/nfc": Record<string, never>;
 			"/packlists": { eventId?: string };
 			"/packlists/[eventId]": { eventId: string };
-			"/qr": Record<string, never>;
 			"/settings": Record<string, never>
 		};
-		Pathname(): "/" | "/admin" | "/admin/" | "/calendar" | "/calendar/" | "/inventory" | "/inventory/" | "/nfc" | "/nfc/" | "/packlists" | "/packlists/" | `/packlists/${string}` & {} | `/packlists/${string}/` & {} | "/qr" | "/qr/" | "/settings" | "/settings/";
+		Pathname(): "/" | "/admin" | "/admin/" | "/calendar" | "/calendar/" | "/inventory" | "/inventory/" | "/nfc" | "/nfc/" | "/packlists" | "/packlists/" | `/packlists/${string}` & {} | `/packlists/${string}/` & {} | "/settings" | "/settings/";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/icon.svg" | "/manifest.json" | "/service-worker.js" | string & {};
 	}

@@ -1,10 +1,10 @@
-import { D as DevalueError, i as is_primitive, g as get_type, a as is_plain_object, e as enumerable_symbols, s as stringify_key, b as stringify_string, r as render, c as set, L as LEGACY_PROPS, d as get, f as flushSync, m as mutable_source, h as init_operations, j as get_first_child, C as COMMENT_NODE, H as HYDRATION_START, k as get_next_sibling, l as HYDRATION_ERROR, n as hydration_failed, o as clear_text_content, p as component_root, q as set_active_reaction, t as set_active_effect, u as active_effect, v as active_reaction, w as is_passive_event, x as create_text, y as block, z as branch, B as Batch, A as pause_effect, E as defer_effect, F as set_component_context, G as handle_error, I as component_context, J as move_effect, K as set_signal_status, M as DIRTY, N as schedule_effect, O as MAYBE_DIRTY, P as internal_set, Q as destroy_effect, R as invoke_error_boundary, S as queue_micro_task, T as svelte_boundary_reset_onerror, U as effect_tracking, V as render_effect, W as HYDRATION_END, X as source, Y as HYDRATION_START_ELSE, Z as untrack, _ as increment, $ as push, a0 as pop, a1 as EFFECT_TRANSPARENT, a2 as EFFECT_PRESERVED, a3 as BOUNDARY_EFFECT, a4 as BROWSER, a5 as uneval } from './chunks/index2-CWN8FtHA.js';
+import { s as set, L as LEGACY_PROPS, g as get, f as flushSync, d as define_property, m as mutable_source, i as init_operations, a as get_first_child, C as COMMENT_NODE, H as HYDRATION_START, b as get_next_sibling, c as HYDRATION_ERROR, h as hydration_failed, e as clear_text_content, j as array_from, k as component_root, l as set_active_reaction, n as set_active_effect, o as active_effect, p as active_reaction, q as create_text, r as setContext, t as block, u as branch, B as Batch, v as pause_effect, w as defer_effect, x as set_component_context, y as handle_error, z as component_context, A as move_effect, D as set_signal_status, E as DIRTY, F as schedule_effect, M as MAYBE_DIRTY, G as internal_set, I as destroy_effect, J as invoke_error_boundary, K as queue_micro_task, N as svelte_boundary_reset_onerror, O as effect_tracking, P as render_effect, Q as HYDRATION_END, R as source, S as HYDRATION_START_ELSE, T as untrack, U as increment, V as push$1, W as pop$1, X as EFFECT_TRANSPARENT, Y as EFFECT_PRESERVED, Z as BOUNDARY_EFFECT, _ as BROWSER } from './chunks/context-BMAeBDpC.js';
 import { json, text, error } from '@sveltejs/kit';
 import { SvelteKitError, Redirect, HttpError, ActionFailure } from '@sveltejs/kit/internal';
 import { with_request_store, merge_tracing } from '@sveltejs/kit/internal/server';
 import { t as text_decoder, b as base64_decode, d as decode_pathname, a as decode_params, n as normalize_path, c as disable_search, v as validate_layout_server_exports, e as validate_layout_exports, f as validate_page_server_exports, g as validate_page_exports, h as text_encoder, r as resolve, m as make_trackable, i as get_relative_path, j as base64_encode } from './chunks/exports-CoK1Wwct.js';
-import { r as readable, w as writable } from './chunks/index-BzU1KQlH.js';
-import { d as define_property, a as array_from, s as setContext } from './chunks/context-O3Xq51Z4.js';
+import { D as DevalueError, i as is_primitive, g as get_type, a as is_plain_object, e as enumerable_symbols, s as stringify_key, b as stringify_string, r as render, c as is_passive_event, u as uneval } from './chunks/index2-CNrh2Uw-.js';
+import { r as readable, w as writable } from './chunks/index-CoA2ZYso.js';
 import './chunks/escaping-CqgfEcN3.js';
 
 let base = "";
@@ -1553,7 +1553,7 @@ function _mount(Component, { target, anchor, props = {}, events, context, intro 
       },
       (anchor_node2) => {
         if (context) {
-          push({});
+          push$1({});
           var ctx = (
             /** @type {ComponentContext} */
             component_context
@@ -1580,7 +1580,7 @@ function _mount(Component, { target, anchor, props = {}, events, context, intro 
           }
         }
         if (context) {
-          pop();
+          pop$1();
         }
       }
     );
@@ -1832,79 +1832,79 @@ const options = {
   service_worker: false,
   service_worker_options: null,
   templates: {
-    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\n<html lang="de">\n  <head>\n    <meta charset="utf-8" />\n    <link rel="icon" href="/icon.svg" />\n    <link rel="manifest" href="/manifest.json" />\n    <meta name="theme-color" content="#0A2540" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    ' + head + '\n  </head>\n  <body data-sveltekit-preload-data="hover">\n    <div class="app-root">' + body + "</div>\n  </body>\n</html>\r\n",
-    error: ({ status, message }) => '<!doctype html>\n<html lang="en">\n	<head>\n		<meta charset="utf-8" />\n		<title>' + message + `</title>
-
-		<style>
-			body {
-				--bg: white;
-				--fg: #222;
-				--divider: #ccc;
-				background: var(--bg);
-				color: var(--fg);
-				font-family:
-					system-ui,
-					-apple-system,
-					BlinkMacSystemFont,
-					'Segoe UI',
-					Roboto,
-					Oxygen,
-					Ubuntu,
-					Cantarell,
-					'Open Sans',
-					'Helvetica Neue',
-					sans-serif;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				height: 100vh;
-				margin: 0;
-			}
-
-			.error {
-				display: flex;
-				align-items: center;
-				max-width: 32rem;
-				margin: 0 1rem;
-			}
-
-			.status {
-				font-weight: 200;
-				font-size: 3rem;
-				line-height: 1;
-				position: relative;
-				top: -0.05rem;
-			}
-
-			.message {
-				border-left: 1px solid var(--divider);
-				padding: 0 0 0 1rem;
-				margin: 0 0 0 1rem;
-				min-height: 2.5rem;
-				display: flex;
-				align-items: center;
-			}
-
-			.message h1 {
-				font-weight: 400;
-				font-size: 1em;
-				margin: 0;
-			}
-
-			@media (prefers-color-scheme: dark) {
-				body {
-					--bg: #222;
-					--fg: #ddd;
-					--divider: #666;
-				}
-			}
-		</style>
-	</head>
-	<body>
-		<div class="error">
-			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
+    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\r\n    <link rel="icon" href="/icon.svg" />\r\n    <link rel="manifest" href="/manifest.json" />\r\n    <meta name="theme-color" content="#0A2540" />\r\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\r\n    ' + head + '\r\n  </head>\r\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
+    error: ({ status, message }) => '<!doctype html>\r\n<html lang="en">\r\n	<head>\r\n		<meta charset="utf-8" />\r\n		<title>' + message + `</title>\r
+\r
+		<style>\r
+			body {\r
+				--bg: white;\r
+				--fg: #222;\r
+				--divider: #ccc;\r
+				background: var(--bg);\r
+				color: var(--fg);\r
+				font-family:\r
+					system-ui,\r
+					-apple-system,\r
+					BlinkMacSystemFont,\r
+					'Segoe UI',\r
+					Roboto,\r
+					Oxygen,\r
+					Ubuntu,\r
+					Cantarell,\r
+					'Open Sans',\r
+					'Helvetica Neue',\r
+					sans-serif;\r
+				display: flex;\r
+				align-items: center;\r
+				justify-content: center;\r
+				height: 100vh;\r
+				margin: 0;\r
+			}\r
+\r
+			.error {\r
+				display: flex;\r
+				align-items: center;\r
+				max-width: 32rem;\r
+				margin: 0 1rem;\r
+			}\r
+\r
+			.status {\r
+				font-weight: 200;\r
+				font-size: 3rem;\r
+				line-height: 1;\r
+				position: relative;\r
+				top: -0.05rem;\r
+			}\r
+\r
+			.message {\r
+				border-left: 1px solid var(--divider);\r
+				padding: 0 0 0 1rem;\r
+				margin: 0 0 0 1rem;\r
+				min-height: 2.5rem;\r
+				display: flex;\r
+				align-items: center;\r
+			}\r
+\r
+			.message h1 {\r
+				font-weight: 400;\r
+				font-size: 1em;\r
+				margin: 0;\r
+			}\r
+\r
+			@media (prefers-color-scheme: dark) {\r
+				body {\r
+					--bg: #222;\r
+					--fg: #ddd;\r
+					--divider: #666;\r
+				}\r
+			}\r
+		</style>\r
+	</head>\r
+	<body>\r
+		<div class="error">\r
+			<span class="status">` + status + '</span>\r\n			<div class="message">\r\n				<h1>' + message + "</h1>\r\n			</div>\r\n		</div>\r\n	</body>\r\n</html>\r\n"
   },
-  version_hash: "34e1zw"
+  version_hash: "1dxk62j"
 };
 async function get_hooks() {
   let handle;

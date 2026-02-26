@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { registerPush, unregisterPush } from "$lib/push";
-  import { apiFetch } from "$lib/api";
   import { onMount } from "svelte";
+  import Card from "$lib/components/Card.svelte";
+  import { apiFetch } from "$lib/api";
+  import { registerPush, unregisterPush } from "$lib/push";
   import { session } from "$lib/auth";
 
   let settings: any[] = [];
@@ -38,31 +39,43 @@
   onMount(loadSettings);
 </script>
 
-<section class="card-grid grid-2">
-  <div class="card">
-    <h2 class="page-title">Einstellungen</h2>
-    <p class="text-muted">Push-Benachrichtigungen und Status.</p>
-    <div class="actions">
-      <button class="btn btn-primary" on:click={enablePush}>Push aktivieren</button>
-      <button class="btn btn-outline" on:click={disablePush}>Push deaktivieren</button>
-    </div>
-    {#if message}
-      <p class="text-muted">{message}</p>
-    {/if}
-  </div>
-  {#if $session?.role === 'admin'}
-    <div class="card">
-      <h3 class="section-title">Feature-Status</h3>
-      {#if settings.length === 0}
-        <p class="text-muted">Keine Feature-Daten verfügbar.</p>
-      {:else}
-        {#each settings as item}
-          <div class="actions actions-between">
-            <span>{item.key}</span>
-            <span class="badge badge-secondary">{item.value}</span>
-          </div>
-        {/each}
+<div class="page-stack">
+  <section class="page-intro">
+    <p class="page-kicker">Einstellungen</p>
+    <h1 class="page-title">Benachrichtigungen und App-Status.</h1>
+    <p class="page-description">Verwalte deine Push-Benachrichtigungen und prüfe den aktuellen Systemzustand.</p>
+  </section>
+
+  <section class="split-grid">
+    <Card title="Benachrichtigungen" description="Die App informiert dich über Termine, Material und Rückmeldungen.">
+      <div class="actions">
+        <button class="btn btn-primary" type="button" on:click={enablePush}>Push aktivieren</button>
+        <button class="btn btn-outline" type="button" on:click={disablePush}>Push deaktivieren</button>
+      </div>
+
+      {#if message}
+        <p class="status-banner">{message}</p>
       {/if}
-    </div>
-  {/if}
-</section>
+    </Card>
+
+    <Card title="Systemstatus" description="Technische Schalter und aktuelle Konfiguration.">
+      {#if $session?.role !== "admin"}
+        <p class="text-muted">Nur Admins sehen die vollständigen Systemwerte.</p>
+      {:else if settings.length === 0}
+        <p class="text-muted">Keine Statusdaten verfügbar.</p>
+      {:else}
+        <div class="hairline-list">
+          {#each settings as item}
+            <div class="list-row">
+              <div class="list-meta">
+                <strong>{item.key}</strong>
+                <span class="text-muted">Aktueller Wert</span>
+              </div>
+              <span class="badge badge-secondary">{item.value}</span>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </Card>
+  </section>
+</div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import Card from "$lib/components/Card.svelte";
   import { apiFetch } from "$lib/api";
 
   let events: any[] = [];
@@ -21,31 +22,38 @@
   onMount(load);
 </script>
 
-<section class="card">
-  <h2 class="page-title">Packlisten</h2>
-</section>
+<div class="page-stack">
+  <section class="page-intro">
+    <p class="page-kicker">Packlisten</p>
+    <h1 class="page-title">Vorbereitungen pro Termin bündeln.</h1>
+    <p class="page-description">Jeder Termin erhält eine eigene Übersicht für Material, Fortschritt und offene Punkte.</p>
+  </section>
 
-<section class="card-grid">
-  {#if loading}
-    <div class="card">Lade Termine...</div>
-  {:else if error}
-    <div class="card">{error}</div>
-  {:else if events.length === 0}
-    <div class="card">Keine Termine vorhanden.</div>
-  {:else}
-    {#each events as event}
-      <article class="card">
-        <h3 class="section-title">{event.title}</h3>
-        <p class="text-muted">{new Date(event.start_at).toLocaleString('de-DE')}</p>
-        <div class="actions">
-          {#if event.packlist_required}
-            <span class="badge badge-warning">Packliste erforderlich</span>
-          {:else}
-            <span class="badge badge-secondary">Optional</span>
-          {/if}
-        </div>
-        <a class="btn btn-outline" href={`/packlists/${event.id}`}>Packliste öffnen</a>
-      </article>
-    {/each}
-  {/if}
-</section>
+  <Card title="Termine mit Packlisten" description="Wähle einen Termin, um die Packliste zu öffnen oder zu vervollständigen.">
+    {#if loading}
+      <p class="text-muted">Lade Termine...</p>
+    {:else if error}
+      <p class="status-banner error">{error}</p>
+    {:else if events.length === 0}
+      <p class="text-muted">Keine Termine vorhanden.</p>
+    {:else}
+      <div class="card-grid">
+        {#each events as event}
+          <Card title={event.title} description={new Date(event.start_at).toLocaleString("de-DE")} interactive={true}>
+            <div slot="actions">
+              {#if event.packlist_required}
+                <span class="badge badge-warning">Erforderlich</span>
+              {:else}
+                <span class="badge badge-secondary">Optional</span>
+              {/if}
+            </div>
+
+            <div class="actions">
+              <a class="btn btn-outline" href={`/packlists/${event.id}`}>Packliste öffnen</a>
+            </div>
+          </Card>
+        {/each}
+      </div>
+    {/if}
+  </Card>
+</div>

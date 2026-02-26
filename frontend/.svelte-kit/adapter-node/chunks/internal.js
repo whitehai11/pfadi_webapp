@@ -1,5 +1,5 @@
-import { H as HYDRATION_ERROR, C as COMMENT_NODE, a as HYDRATION_END, g as get_next_sibling, b as HYDRATION_START, c as HYDRATION_START_ELSE, e as effect_tracking, d as get, r as render_effect, s as source, u as untrack, i as increment, q as queue_micro_task, f as active_effect, h as block, j as branch, B as Batch, p as pause_effect, k as create_text, l as defer_effect, m as set_active_effect, n as set_active_reaction, o as set_component_context, t as handle_error, v as active_reaction, w as component_context, x as move_effect, y as set_signal_status, D as DIRTY, z as schedule_effect, M as MAYBE_DIRTY, A as internal_set, E as destroy_effect, F as invoke_error_boundary, G as svelte_boundary_reset_onerror, I as EFFECT_TRANSPARENT, J as EFFECT_PRESERVED, K as BOUNDARY_EFFECT, L as init_operations, N as get_first_child, O as hydration_failed, P as clear_text_content, Q as component_root, R as is_passive_event, S as push, T as pop, U as set, V as LEGACY_PROPS, W as flushSync, X as mutable_source, Y as render } from "./index2.js";
-import { d as define_property, a as array_from, s as setContext } from "./context.js";
+import { H as HYDRATION_ERROR, C as COMMENT_NODE, a as HYDRATION_END, g as get_next_sibling, b as HYDRATION_START, c as HYDRATION_START_ELSE, e as effect_tracking, d as get, r as render_effect, s as source, u as untrack, i as increment, q as queue_micro_task, f as active_effect, h as block, j as branch, B as Batch, p as pause_effect, k as create_text, l as defer_effect, m as set_active_effect, n as set_active_reaction, o as set_component_context, t as handle_error, v as active_reaction, w as component_context, x as move_effect, y as set_signal_status, D as DIRTY, z as schedule_effect, M as MAYBE_DIRTY, A as internal_set, E as destroy_effect, F as invoke_error_boundary, G as svelte_boundary_reset_onerror, I as EFFECT_TRANSPARENT, J as EFFECT_PRESERVED, K as BOUNDARY_EFFECT, L as define_property, N as init_operations, O as get_first_child, P as hydration_failed, Q as clear_text_content, R as array_from, S as component_root, T as push, U as pop, V as set, W as LEGACY_PROPS, X as flushSync, Y as mutable_source, Z as setContext } from "./context.js";
+import { i as is_passive_event, r as render } from "./index2.js";
 import "clsx";
 import "./environment.js";
 let public_env = {};
@@ -901,79 +901,79 @@ const options = {
   service_worker: false,
   service_worker_options: null,
   templates: {
-    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\n<html lang="de">\n  <head>\n    <meta charset="utf-8" />\n    <link rel="icon" href="/icon.svg" />\n    <link rel="manifest" href="/manifest.json" />\n    <meta name="theme-color" content="#0A2540" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    ' + head + '\n  </head>\n  <body data-sveltekit-preload-data="hover">\n    <div class="app-root">' + body + "</div>\n  </body>\n</html>\r\n",
-    error: ({ status, message }) => '<!doctype html>\n<html lang="en">\n	<head>\n		<meta charset="utf-8" />\n		<title>' + message + `</title>
-
-		<style>
-			body {
-				--bg: white;
-				--fg: #222;
-				--divider: #ccc;
-				background: var(--bg);
-				color: var(--fg);
-				font-family:
-					system-ui,
-					-apple-system,
-					BlinkMacSystemFont,
-					'Segoe UI',
-					Roboto,
-					Oxygen,
-					Ubuntu,
-					Cantarell,
-					'Open Sans',
-					'Helvetica Neue',
-					sans-serif;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				height: 100vh;
-				margin: 0;
-			}
-
-			.error {
-				display: flex;
-				align-items: center;
-				max-width: 32rem;
-				margin: 0 1rem;
-			}
-
-			.status {
-				font-weight: 200;
-				font-size: 3rem;
-				line-height: 1;
-				position: relative;
-				top: -0.05rem;
-			}
-
-			.message {
-				border-left: 1px solid var(--divider);
-				padding: 0 0 0 1rem;
-				margin: 0 0 0 1rem;
-				min-height: 2.5rem;
-				display: flex;
-				align-items: center;
-			}
-
-			.message h1 {
-				font-weight: 400;
-				font-size: 1em;
-				margin: 0;
-			}
-
-			@media (prefers-color-scheme: dark) {
-				body {
-					--bg: #222;
-					--fg: #ddd;
-					--divider: #666;
-				}
-			}
-		</style>
-	</head>
-	<body>
-		<div class="error">
-			<span class="status">` + status + '</span>\n			<div class="message">\n				<h1>' + message + "</h1>\n			</div>\n		</div>\n	</body>\n</html>\n"
+    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\r\n    <link rel="icon" href="/icon.svg" />\r\n    <link rel="manifest" href="/manifest.json" />\r\n    <meta name="theme-color" content="#0A2540" />\r\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\r\n    ' + head + '\r\n  </head>\r\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
+    error: ({ status, message }) => '<!doctype html>\r\n<html lang="en">\r\n	<head>\r\n		<meta charset="utf-8" />\r\n		<title>' + message + `</title>\r
+\r
+		<style>\r
+			body {\r
+				--bg: white;\r
+				--fg: #222;\r
+				--divider: #ccc;\r
+				background: var(--bg);\r
+				color: var(--fg);\r
+				font-family:\r
+					system-ui,\r
+					-apple-system,\r
+					BlinkMacSystemFont,\r
+					'Segoe UI',\r
+					Roboto,\r
+					Oxygen,\r
+					Ubuntu,\r
+					Cantarell,\r
+					'Open Sans',\r
+					'Helvetica Neue',\r
+					sans-serif;\r
+				display: flex;\r
+				align-items: center;\r
+				justify-content: center;\r
+				height: 100vh;\r
+				margin: 0;\r
+			}\r
+\r
+			.error {\r
+				display: flex;\r
+				align-items: center;\r
+				max-width: 32rem;\r
+				margin: 0 1rem;\r
+			}\r
+\r
+			.status {\r
+				font-weight: 200;\r
+				font-size: 3rem;\r
+				line-height: 1;\r
+				position: relative;\r
+				top: -0.05rem;\r
+			}\r
+\r
+			.message {\r
+				border-left: 1px solid var(--divider);\r
+				padding: 0 0 0 1rem;\r
+				margin: 0 0 0 1rem;\r
+				min-height: 2.5rem;\r
+				display: flex;\r
+				align-items: center;\r
+			}\r
+\r
+			.message h1 {\r
+				font-weight: 400;\r
+				font-size: 1em;\r
+				margin: 0;\r
+			}\r
+\r
+			@media (prefers-color-scheme: dark) {\r
+				body {\r
+					--bg: #222;\r
+					--fg: #ddd;\r
+					--divider: #666;\r
+				}\r
+			}\r
+		</style>\r
+	</head>\r
+	<body>\r
+		<div class="error">\r
+			<span class="status">` + status + '</span>\r\n			<div class="message">\r\n				<h1>' + message + "</h1>\r\n			</div>\r\n		</div>\r\n	</body>\r\n</html>\r\n"
   },
-  version_hash: "34e1zw"
+  version_hash: "1dxk62j"
 };
 async function get_hooks() {
   let handle;

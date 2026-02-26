@@ -1,5 +1,4 @@
-import { n as noop, b as safe_not_equal } from "./context.js";
-import "clsx";
+import { a0 as noop, a1 as safe_not_equal, a2 as subscribe_to_store } from "./context.js";
 const subscriber_queue = [];
 function readable(value, start) {
   return {
@@ -53,7 +52,13 @@ function writable(value, start = noop) {
   }
   return { set, update, subscribe };
 }
+function get(store) {
+  let value;
+  subscribe_to_store(store, (_) => value = _)();
+  return value;
+}
 export {
+  get as g,
   readable as r,
   writable as w
 };
