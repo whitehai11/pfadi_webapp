@@ -12,7 +12,7 @@ log() {
 }
 
 fail() {
-  printf '[pfadi-update] ERROR: %s\n' "$*" >&2
+  printf '[pfadi-update] error: %s\n' "$*" >&2
   exit 1
 }
 
