@@ -17,6 +17,9 @@ backend/dist/
 # Logs
 *.log
 
+# Local version tracking
+version.json
+
 # Env files
 .env
 backend/.env

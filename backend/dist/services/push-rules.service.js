@@ -102,6 +102,17 @@ const renderTemplate = (template, event, user, item) => {
     return output;
 };
 const listTargetUsers = (rule) => {
+    if (rule.target_type === "user" && rule.target_id) {
+        const row = db
+            .prepare("SELECT id, email as username, role FROM users WHERE id = ? AND status = 'approved'")
+            .get(rule.target_id);
+        return row ? [row] : [];
+    }
+    if (rule.target_type === "role" && rule.target_id) {
+        return db
+            .prepare("SELECT id, email as username, role FROM users WHERE role = ? AND status = 'approved' ORDER BY email ASC")
+            .all(rule.target_id);
+    }
     if (rule.target_user_id) {
         const row = db
             .prepare("SELECT id, email as username, role FROM users WHERE id = ? AND status = 'approved'")
@@ -127,10 +138,59 @@ const wasSentRecently = (ruleId, eventId, userId, cooldownHours) => {
 const logSent = (ruleId, eventId, userId) => {
     db.prepare("INSERT INTO push_delivery_log (id, rule_id, event_id, user_id, sent_at) VALUES (?, ?, ?, ?, ?)").run(crypto.randomUUID(), ruleId, eventId, userId, nowIso());
 };
+const intervalToMilliseconds = (value, unit) => {
+    if (unit === "hours")
+        return value * 60 * 60 * 1000;
+    if (unit === "days")
+        return value * 24 * 60 * 60 * 1000;
+    return value * 7 * 24 * 60 * 60 * 1000;
+};
 export const getRules = (ruleType) => {
     return db
         .prepare("SELECT * FROM push_rules WHERE rule_type = ? AND enabled = 1")
         .all(ruleType);
+};
+export const listCustomPushRules = () => {
+    return db
+        .prepare("SELECT * FROM push_rules WHERE rule_type = 'custom-notification' ORDER BY created_at DESC")
+        .all();
+};
+export const getCustomPushRule = (ruleId) => {
+    return db
+        .prepare("SELECT * FROM push_rules WHERE id = ? AND rule_type = 'custom-notification'")
+        .get(ruleId);
+};
+export const updateCustomPushRuleLastSent = (ruleId) => {
+    db.prepare("UPDATE push_rules SET last_sent_at = ?, updated_at = ? WHERE id = ?").run(nowIso(), nowIso(), ruleId);
+};
+export const isCustomRuleDue = (rule, now) => {
+    if (rule.rule_type !== "custom-notification")
+        return false;
+    if (rule.notification_type !== "recurring")
+        return false;
+    if (!rule.is_recurring || !rule.is_active)
+        return false;
+    if (!rule.interval_value || !rule.interval_unit)
+        return false;
+    if (rule.start_date) {
+        const start = new Date(`${rule.start_date}T00:00:00`);
+        if (!Number.isNaN(start.getTime()) && now.getTime() < start.getTime())
+            return false;
+    }
+    if (rule.end_date) {
+        const end = new Date(`${rule.end_date}T23:59:59.999`);
+        if (!Number.isNaN(end.getTime()) && now.getTime() > end.getTime())
+            return false;
+    }
+    if (isQuietHours(now))
+        return false;
+    if (!rule.last_sent_at)
+        return true;
+    const lastSent = new Date(rule.last_sent_at);
+    if (Number.isNaN(lastSent.getTime()))
+        return true;
+    const threshold = lastSent.getTime() + intervalToMilliseconds(rule.interval_value, rule.interval_unit);
+    return now.getTime() >= threshold;
 };
 export const sendRuleToUsers = async (rule, users, payload) => {
     const now = new Date();
@@ -153,6 +213,23 @@ export const sendRuleToUsers = async (rule, users, payload) => {
             type: payload.type
         });
         logSent(rule.id, event?.id ?? null, user.id);
+    }
+};
+export const sendCustomPushRule = async (rule, options) => {
+    const users = listTargetUsers(rule);
+    const title = (rule.title ?? "").trim() || "Hinweis";
+    const body = (rule.message ?? "").trim();
+    for (const user of users) {
+        await sendToUser(user.id, {
+            title,
+            body,
+            type: "custom-notification",
+            ruleId: rule.id
+        });
+        logSent(rule.id, null, user.id);
+    }
+    if (options?.updateLastSent !== false) {
+        updateCustomPushRuleLastSent(rule.id);
     }
 };
 export const sendRulesForEvent = async (ruleType, event) => {

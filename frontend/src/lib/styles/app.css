@@ -85,6 +85,43 @@ h4 {
   min-height: 100vh;
 }
 
+.update-banner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  z-index: 60;
+  width: min(calc(100% - 2rem), 560px);
+  padding: 0.9rem 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.72),
+    0 18px 40px rgba(15, 23, 42, 0.1);
+  backdrop-filter: blur(18px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transform: translateX(-50%);
+  animation: cardFade 150ms ease both;
+}
+
+.update-banner__copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.update-banner__copy span {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.update-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
 .app-main,
 .auth-main {
   padding: 2rem 1.25rem 3rem;
@@ -1178,5 +1215,11 @@ h4 {
   .icon-button {
     width: 44px;
     height: 44px;
+  }
+
+  .update-banner,
+  .update-banner__actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

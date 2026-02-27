@@ -19,6 +19,18 @@ export type Rule = {
   schedule_every: string | null;
   schedule_time: string | null;
   cooldown_hours: number | null;
+  title: string | null;
+  message: string | null;
+  notification_type: "instant" | "recurring";
+  target_type: "all" | "role" | "user";
+  target_id: string | null;
+  is_recurring: number;
+  interval_value: number | null;
+  interval_unit: "hours" | "days" | "weeks" | null;
+  start_date: string | null;
+  end_date: string | null;
+  last_sent_at: string | null;
+  is_active: number;
 };
 
 export type EventContext = {
@@ -151,6 +163,17 @@ const renderTemplate = (
 };
 
 const listTargetUsers = (rule: Rule): UserContext[] => {
+  if (rule.target_type === "user" && rule.target_id) {
+    const row = db
+      .prepare("SELECT id, email as username, role FROM users WHERE id = ? AND status = 'approved'")
+      .get(rule.target_id) as UserContext | undefined;
+    return row ? [row] : [];
+  }
+  if (rule.target_type === "role" && rule.target_id) {
+    return db
+      .prepare("SELECT id, email as username, role FROM users WHERE role = ? AND status = 'approved' ORDER BY email ASC")
+      .all(rule.target_id) as UserContext[];
+  }
   if (rule.target_user_id) {
     const row = db
       .prepare("SELECT id, email as username, role FROM users WHERE id = ? AND status = 'approved'")
@@ -187,10 +210,57 @@ const logSent = (ruleId: string, eventId: string | null, userId: string) => {
   );
 };
 
+const intervalToMilliseconds = (value: number, unit: "hours" | "days" | "weeks") => {
+  if (unit === "hours") return value * 60 * 60 * 1000;
+  if (unit === "days") return value * 24 * 60 * 60 * 1000;
+  return value * 7 * 24 * 60 * 60 * 1000;
+};
+
 export const getRules = (ruleType: string): Rule[] => {
   return db
     .prepare("SELECT * FROM push_rules WHERE rule_type = ? AND enabled = 1")
     .all(ruleType) as Rule[];
+};
+
+export const listCustomPushRules = (): Rule[] => {
+  return db
+    .prepare("SELECT * FROM push_rules WHERE rule_type = 'custom-notification' ORDER BY created_at DESC")
+    .all() as Rule[];
+};
+
+export const getCustomPushRule = (ruleId: string): Rule | undefined => {
+  return db
+    .prepare("SELECT * FROM push_rules WHERE id = ? AND rule_type = 'custom-notification'")
+    .get(ruleId) as Rule | undefined;
+};
+
+export const updateCustomPushRuleLastSent = (ruleId: string) => {
+  db.prepare("UPDATE push_rules SET last_sent_at = ?, updated_at = ? WHERE id = ?").run(nowIso(), nowIso(), ruleId);
+};
+
+export const isCustomRuleDue = (rule: Rule, now: Date) => {
+  if (rule.rule_type !== "custom-notification") return false;
+  if (rule.notification_type !== "recurring") return false;
+  if (!rule.is_recurring || !rule.is_active) return false;
+  if (!rule.interval_value || !rule.interval_unit) return false;
+
+  if (rule.start_date) {
+    const start = new Date(`${rule.start_date}T00:00:00`);
+    if (!Number.isNaN(start.getTime()) && now.getTime() < start.getTime()) return false;
+  }
+
+  if (rule.end_date) {
+    const end = new Date(`${rule.end_date}T23:59:59.999`);
+    if (!Number.isNaN(end.getTime()) && now.getTime() > end.getTime()) return false;
+  }
+
+  if (isQuietHours(now)) return false;
+
+  if (!rule.last_sent_at) return true;
+  const lastSent = new Date(rule.last_sent_at);
+  if (Number.isNaN(lastSent.getTime())) return true;
+  const threshold = lastSent.getTime() + intervalToMilliseconds(rule.interval_value, rule.interval_unit);
+  return now.getTime() >= threshold;
 };
 
 export const sendRuleToUsers = async (
@@ -217,6 +287,26 @@ export const sendRuleToUsers = async (
       type: payload.type
     });
     logSent(rule.id, event?.id ?? null, user.id);
+  }
+};
+
+export const sendCustomPushRule = async (rule: Rule, options?: { updateLastSent?: boolean }) => {
+  const users = listTargetUsers(rule);
+  const title = (rule.title ?? "").trim() || "Hinweis";
+  const body = (rule.message ?? "").trim();
+
+  for (const user of users) {
+    await sendToUser(user.id, {
+      title,
+      body,
+      type: "custom-notification",
+      ruleId: rule.id
+    });
+    logSent(rule.id, null, user.id);
+  }
+
+  if (options?.updateLastSent !== false) {
+    updateCustomPushRuleLastSent(rule.id);
   }
 };
 

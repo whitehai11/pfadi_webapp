@@ -17,10 +17,12 @@ import { adminRoutes } from "./api/admin.routes.js";
 import { authRoutes } from "./api/auth.routes.js";
 import { settingsRoutes } from "./api/settings.routes.js";
 import { chatRoutes } from "./api/chat.routes.js";
+import { systemRoutes } from "./api/system.routes.js";
 import { generateIcs, getIcsPath } from "./services/ics.service.js";
 import { scheduleCalendarRefresh } from "./cron/calendar-refresh.cron.js";
 import { scheduleReminders } from "./cron/reminders.cron.js";
 import { schedulePacklistChecks } from "./cron/packlist-check.cron.js";
+import { scheduleCustomPushRules } from "./cron/push-rules.cron.js";
 import { ensureDefaultChatRoom } from "./services/chat.service.js";
 
 const app = Fastify({ logger: true });
@@ -206,6 +208,7 @@ app.register(pushRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(settingsRoutes, { prefix: "/api" });
 app.register(chatRoutes, { prefix: "/api" });
+app.register(systemRoutes, { prefix: "/api" });
 
 app.get("/calendar.ics", async (request, reply) => {
   const icsPath = getIcsPath();
@@ -223,6 +226,7 @@ const start = async () => {
   scheduleCalendarRefresh();
   scheduleReminders();
   schedulePacklistChecks();
+  scheduleCustomPushRules();
 
   await app.listen({ port: settings.port, host: settings.host });
   console.log(`API listening on ${settings.host}:${settings.port}`);

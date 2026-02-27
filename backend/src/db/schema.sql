@@ -104,6 +104,18 @@ CREATE TABLE IF NOT EXISTS push_rules (
   schedule_every TEXT,
   schedule_time TEXT,
   cooldown_hours INTEGER,
+  title TEXT,
+  message TEXT,
+  notification_type TEXT NOT NULL DEFAULT 'instant' CHECK (notification_type IN ('instant', 'recurring')),
+  target_type TEXT NOT NULL DEFAULT 'all' CHECK (target_type IN ('all', 'role', 'user')),
+  target_id TEXT,
+  is_recurring INTEGER NOT NULL DEFAULT 0,
+  interval_value INTEGER,
+  interval_unit TEXT CHECK (interval_unit IN ('hours', 'days', 'weeks')),
+  start_date TEXT,
+  end_date TEXT,
+  last_sent_at TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

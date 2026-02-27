@@ -6,7 +6,7 @@ import "../../chunks/exports.js";
 import "../../chunks/utils.js";
 import { w as writable } from "../../chunks/index.js";
 import "@sveltejs/kit/internal/server";
-import { $ as getContext } from "../../chunks/context.js";
+import { a0 as getContext } from "../../chunks/context.js";
 function create_updated_store() {
   const { set, subscribe } = writable(false);
   {

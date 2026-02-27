@@ -1,4 +1,4 @@
-import { b as HYDRATION_START, a as HYDRATION_END, a3 as STALE_REACTION, a4 as set_ssr_context, a5 as ssr_context, a6 as push, a7 as pop, a2 as subscribe_to_store, a8 as ELEMENT_PRESERVE_ATTRIBUTE_CASE, a9 as ELEMENT_IS_INPUT, aa as ELEMENT_IS_NAMESPACED } from "./context.js";
+import { b as HYDRATION_START, a as HYDRATION_END, a4 as STALE_REACTION, a5 as set_ssr_context, _ as ssr_context, a6 as push, a7 as pop, a3 as subscribe_to_store, a8 as ELEMENT_PRESERVE_ATTRIBUTE_CASE, a9 as ELEMENT_IS_INPUT, aa as ELEMENT_IS_NAMESPACED } from "./context.js";
 import { e as escape_html } from "./escaping.js";
 import { clsx as clsx$1 } from "clsx";
 import * as devalue from "devalue";
@@ -900,9 +900,6 @@ function attributes(attrs, css_hash, classes, styles, flags = 0) {
   }
   return attr_str;
 }
-function stringify(value) {
-  return typeof value === "string" ? value : value == null ? "" : value + "";
-}
 function attr_class(value, hash, directives) {
   var result = to_class(value, hash, directives);
   return result ? ` class="${escape_html(result, true)}"` : "";
@@ -960,15 +957,14 @@ function ensure_array_like(array_like_or_iterator) {
 }
 export {
   attr as a,
-  attr_class as b,
-  bind_props as c,
+  bind_props as b,
+  attr_class as c,
   clsx as d,
   ensure_array_like as e,
   slot as f,
   sanitize_slots as g,
   head as h,
   is_passive_event as i,
-  stringify as j,
   render as r,
   store_get as s,
   unsubscribe_stores as u

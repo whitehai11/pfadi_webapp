@@ -1,31 +1,9 @@
 import { s as store_get, a as attr, u as unsubscribe_stores, e as ensure_array_like } from "../../chunks/index2.js";
 import { C as Card } from "../../chunks/Card.js";
 import { L as Logo } from "../../chunks/Logo.js";
-import { a as authHeader, s as session } from "../../chunks/auth.js";
+import { a as apiFetch } from "../../chunks/api.js";
+import { s as session } from "../../chunks/auth.js";
 import { e as escape_html } from "../../chunks/escaping.js";
-const baseUrl = "";
-const apiFetch = async (path, options = {}) => {
-  const hasBody = options.body !== void 0 && options.body !== null;
-  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
-  const headers = {
-    ...authHeader(),
-    ...hasBody && !isFormData ? { "Content-Type": "application/json" } : {},
-    ...options.headers || {}
-  };
-  const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
-  if (!response.ok) {
-    const text = await response.text();
-    let parsed = null;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = null;
-    }
-    throw new Error(parsed?.error || parsed?.message || text || "Request failed");
-  }
-  if (response.status === 204) return null;
-  return response.json();
-};
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;

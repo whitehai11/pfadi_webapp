@@ -2,6 +2,8 @@ import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 import { requireAdmin } from "../utils/guards.js";
+import { createRateLimit } from "../utils/rate-limit.js";
+import { getCustomPushRule, sendCustomPushRule } from "../services/push-rules.service.js";
 import { dateSchema, optionalTextField, parseOrReply, textField, timeSchema, uuidParamSchema } from "../utils/validation.js";
 const settingKeySchema = z.enum(["nfc_enabled", "chat_enabled", "quiet_hours_start", "quiet_hours_end"]);
 const settingSchema = z
@@ -14,7 +16,8 @@ const settingSchema = z
     if ((value.key === "nfc_enabled" || value.key === "chat_enabled") && !["true", "false"].includes(value.value)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "boolean expected" });
     }
-    if ((value.key === "quiet_hours_start" || value.key === "quiet_hours_end") && !timeSchema.safeParse(value.value).success) {
+    if ((value.key === "quiet_hours_start" || value.key === "quiet_hours_end") &&
+        !timeSchema.safeParse(value.value).success) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "time expected" });
     }
 });
@@ -46,9 +49,48 @@ const pushRuleSchema = z
     schedule_start_date: dateSchema.optional().nullable(),
     schedule_every: z.enum(["daily", "weekly", "monthly"]).optional().nullable(),
     schedule_time: timeSchema.optional().nullable(),
-    cooldown_hours: z.number().int().min(0).max(24 * 365).optional().nullable()
+    cooldown_hours: z.number().int().min(0).max(24 * 365).optional().nullable(),
+    title: optionalTextField(160),
+    message: optionalTextField(1200),
+    notification_type: z.enum(["instant", "recurring"]).optional(),
+    target_type: z.enum(["all", "role", "user"]).optional(),
+    target_id: z.string().trim().max(120).optional().nullable(),
+    is_recurring: z.boolean().optional(),
+    interval_value: z.number().int().min(1).max(24 * 365).optional().nullable(),
+    interval_unit: z.enum(["hours", "days", "weeks"]).optional().nullable(),
+    start_date: dateSchema.optional().nullable(),
+    end_date: dateSchema.optional().nullable(),
+    last_sent_at: z.string().datetime().optional().nullable(),
+    is_active: z.boolean().optional()
 })
-    .strict();
+    .strict()
+    .superRefine((value, ctx) => {
+    if (value.rule_type === "custom-notification") {
+        if (!value.title || value.title.trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "title required", path: ["title"] });
+        }
+        if (!value.message || value.message.trim().length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "message required", path: ["message"] });
+        }
+        if (value.target_type !== "all" && (!value.target_id || value.target_id.trim().length === 0)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "target required", path: ["target_id"] });
+        }
+        if (value.notification_type === "recurring") {
+            if (!value.interval_value || !value.interval_unit) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: "interval required", path: ["interval_value"] });
+            }
+            if (value.start_date && value.end_date && value.end_date < value.start_date) {
+                ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid date range", path: ["end_date"] });
+            }
+        }
+    }
+});
+const manualSendRateLimit = createRateLimit({
+    bucket: "admin-push-send",
+    max: 12,
+    windowMs: 60 * 60 * 1000,
+    message: "Zu viele manuelle Push-Sendungen. Bitte spaeter erneut versuchen."
+});
 export const adminRoutes = async (app) => {
     app.get("/admin/users", { preHandler: requireAdmin }, async () => {
         return db.prepare("SELECT id, email, role, status, created_at FROM users ORDER BY created_at DESC, email ASC").all();
@@ -64,9 +106,7 @@ export const adminRoutes = async (app) => {
         if (!params || !parsed)
             return;
         const now = nowIso();
-        const result = db
-            .prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?")
-            .run(parsed.role, now, params.id);
+        const result = db.prepare("UPDATE users SET role = ?, updated_at = ? WHERE id = ?").run(parsed.role, now, params.id);
         if (result.changes === 0) {
             return reply.code(404).send({ error: "Not found" });
         }
@@ -87,8 +127,7 @@ export const adminRoutes = async (app) => {
         return reply.send({ ok: true });
     });
     app.get("/admin/settings", { preHandler: requireAdmin }, async () => {
-        const rows = db.prepare("SELECT key, value, updated_at FROM settings ORDER BY key ASC").all();
-        return rows;
+        return db.prepare("SELECT key, value, updated_at FROM settings ORDER BY key ASC").all();
     });
     app.put("/admin/settings", { preHandler: requireAdmin }, async (request, reply) => {
         const parsed = parseOrReply(reply, z.array(settingSchema).max(20), request.body);
@@ -105,7 +144,7 @@ export const adminRoutes = async (app) => {
         return reply.send({ ok: true });
     });
     app.get("/admin/push-rules", { preHandler: requireAdmin }, async () => {
-        return db.prepare("SELECT * FROM push_rules ORDER BY rule_type ASC").all();
+        return db.prepare("SELECT * FROM push_rules ORDER BY created_at DESC, rule_type ASC").all();
     });
     app.post("/admin/push-rules", { preHandler: requireAdmin }, async (request, reply) => {
         const parsed = parseOrReply(reply, pushRuleSchema, request.body);
@@ -113,7 +152,12 @@ export const adminRoutes = async (app) => {
             return;
         const now = nowIso();
         const id = randomUUID();
-        db.prepare("INSERT INTO push_rules (id, rule_type, enabled, lead_time_hours, target_user_id, target_role, title_template, body_template, min_response_percent, event_type, send_start, send_end, schedule_start_date, schedule_every, schedule_time, cooldown_hours, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(id, parsed.rule_type, parsed.enabled ? 1 : 0, parsed.lead_time_hours, parsed.target_user_id ?? null, parsed.target_role ?? null, parsed.title_template ?? null, parsed.body_template ?? null, parsed.min_response_percent ?? null, parsed.event_type ?? null, parsed.send_start ?? null, parsed.send_end ?? null, parsed.schedule_start_date ?? null, parsed.schedule_every ?? null, parsed.schedule_time ?? null, parsed.cooldown_hours ?? null, now, now);
+        db.prepare(`INSERT INTO push_rules (
+        id, rule_type, enabled, lead_time_hours, target_user_id, target_role, title_template, body_template,
+        min_response_percent, event_type, send_start, send_end, schedule_start_date, schedule_every, schedule_time,
+        cooldown_hours, title, message, notification_type, target_type, target_id, is_recurring, interval_value,
+        interval_unit, start_date, end_date, last_sent_at, is_active, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(id, parsed.rule_type, parsed.enabled ? 1 : 0, parsed.lead_time_hours, parsed.target_user_id ?? null, parsed.target_role ?? null, parsed.title_template ?? null, parsed.body_template ?? null, parsed.min_response_percent ?? null, parsed.event_type ?? null, parsed.send_start ?? null, parsed.send_end ?? null, parsed.schedule_start_date ?? null, parsed.schedule_every ?? null, parsed.schedule_time ?? null, parsed.cooldown_hours ?? null, parsed.title ?? null, parsed.message ?? null, parsed.notification_type ?? "instant", parsed.target_type ?? "all", parsed.target_id ?? null, parsed.is_recurring ? 1 : 0, parsed.interval_value ?? null, parsed.interval_unit ?? null, parsed.start_date ?? null, parsed.end_date ?? null, parsed.last_sent_at ?? null, parsed.is_active === undefined ? 1 : parsed.is_active ? 1 : 0, now, now);
         return reply.code(201).send({ id });
     });
     app.put("/admin/push-rules/:id", { preHandler: requireAdmin }, async (request, reply) => {
@@ -123,8 +167,13 @@ export const adminRoutes = async (app) => {
             return;
         const now = nowIso();
         const result = db
-            .prepare("UPDATE push_rules SET rule_type = ?, enabled = ?, lead_time_hours = ?, target_user_id = ?, target_role = ?, title_template = ?, body_template = ?, min_response_percent = ?, event_type = ?, send_start = ?, send_end = ?, schedule_start_date = ?, schedule_every = ?, schedule_time = ?, cooldown_hours = ?, updated_at = ? WHERE id = ?")
-            .run(parsed.rule_type, parsed.enabled ? 1 : 0, parsed.lead_time_hours, parsed.target_user_id ?? null, parsed.target_role ?? null, parsed.title_template ?? null, parsed.body_template ?? null, parsed.min_response_percent ?? null, parsed.event_type ?? null, parsed.send_start ?? null, parsed.send_end ?? null, parsed.schedule_start_date ?? null, parsed.schedule_every ?? null, parsed.schedule_time ?? null, parsed.cooldown_hours ?? null, now, params.id);
+            .prepare(`UPDATE push_rules SET
+          rule_type = ?, enabled = ?, lead_time_hours = ?, target_user_id = ?, target_role = ?, title_template = ?,
+          body_template = ?, min_response_percent = ?, event_type = ?, send_start = ?, send_end = ?, schedule_start_date = ?,
+          schedule_every = ?, schedule_time = ?, cooldown_hours = ?, title = ?, message = ?, notification_type = ?,
+          target_type = ?, target_id = ?, is_recurring = ?, interval_value = ?, interval_unit = ?, start_date = ?,
+          end_date = ?, last_sent_at = ?, is_active = ?, updated_at = ? WHERE id = ?`)
+            .run(parsed.rule_type, parsed.enabled ? 1 : 0, parsed.lead_time_hours, parsed.target_user_id ?? null, parsed.target_role ?? null, parsed.title_template ?? null, parsed.body_template ?? null, parsed.min_response_percent ?? null, parsed.event_type ?? null, parsed.send_start ?? null, parsed.send_end ?? null, parsed.schedule_start_date ?? null, parsed.schedule_every ?? null, parsed.schedule_time ?? null, parsed.cooldown_hours ?? null, parsed.title ?? null, parsed.message ?? null, parsed.notification_type ?? "instant", parsed.target_type ?? "all", parsed.target_id ?? null, parsed.is_recurring ? 1 : 0, parsed.interval_value ?? null, parsed.interval_unit ?? null, parsed.start_date ?? null, parsed.end_date ?? null, parsed.last_sent_at ?? null, parsed.is_active === undefined ? 1 : parsed.is_active ? 1 : 0, now, params.id);
         if (result.changes === 0) {
             return reply.code(404).send({ error: "Not found" });
         }
@@ -139,5 +188,16 @@ export const adminRoutes = async (app) => {
             return reply.code(404).send({ error: "Not found" });
         }
         return reply.code(204).send();
+    });
+    app.post("/admin/push-rules/:id/send", { preHandler: [requireAdmin, manualSendRateLimit] }, async (request, reply) => {
+        const params = parseOrReply(reply, idParamsSchema, request.params);
+        if (!params)
+            return;
+        const rule = getCustomPushRule(params.id);
+        if (!rule) {
+            return reply.code(404).send({ error: "Not found" });
+        }
+        await sendCustomPushRule(rule);
+        return reply.send({ ok: true });
     });
 };
