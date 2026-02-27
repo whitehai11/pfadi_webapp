@@ -2,7 +2,7 @@ import cron from "node-cron";
 import { db } from "../db/database.js";
 import { getRules, listUsersForRule, sendRuleToUsers } from "../services/push-rules.service.js";
 
-const listUsers = () => db.prepare("SELECT id, email as username, role FROM users").all() as {
+const listUsers = () => db.prepare("SELECT id, email as username, role FROM users WHERE status = 'approved'").all() as {
   id: string;
   username: string;
   role: string;
@@ -68,7 +68,7 @@ export const scheduleReminders = () => {
 
         const missingUsers = db
           .prepare(
-            "SELECT id, email as username, role FROM users WHERE id NOT IN (SELECT user_id FROM event_availability WHERE event_id = ?)"
+            "SELECT id, email as username, role FROM users WHERE status = 'approved' AND id NOT IN (SELECT user_id FROM event_availability WHERE event_id = ?)"
           )
           .all(event.id) as { id: string; username: string; role: string }[];
 

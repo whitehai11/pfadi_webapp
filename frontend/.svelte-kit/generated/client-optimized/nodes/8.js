@@ -1,1 +1,1 @@
-export { default as component } from "../../../../src/routes/packlists/[eventId]/+page.svelte";
+export { default as component } from "../../../../src/routes/packlists/+page.svelte";

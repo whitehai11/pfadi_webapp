@@ -3,14 +3,19 @@ import { z } from "zod";
 import { requireAdmin, requireAuth } from "../utils/guards.js";
 import { settings } from "../config/settings.js";
 import { deleteSubscription, saveSubscription, sendToUser } from "../services/push.service.js";
+import { parseOrReply } from "../utils/validation.js";
 
-const subscriptionSchema = z.object({
-  endpoint: z.string().min(1),
-  keys: z.object({
-    p256dh: z.string().min(1),
-    auth: z.string().min(1)
+const subscriptionSchema = z
+  .object({
+    endpoint: z.string().url().max(2048),
+    keys: z
+      .object({
+        p256dh: z.string().min(16).max(512),
+        auth: z.string().min(8).max(128)
+      })
+      .strict()
   })
-});
+  .strict();
 
 export const pushRoutes = async (app: FastifyInstance) => {
   app.get("/push/vapid-public-key", async () => {
@@ -18,22 +23,18 @@ export const pushRoutes = async (app: FastifyInstance) => {
   });
 
   app.post("/push/subscribe", { preHandler: requireAuth }, async (request, reply) => {
-    const parsed = subscriptionSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "Invalid input" });
-    }
+    const parsed = parseOrReply(reply, subscriptionSchema, request.body);
+    if (!parsed) return;
     const user = request.user as { id: string };
-    const id = saveSubscription(user.id, parsed.data);
+    const id = saveSubscription(user.id, parsed);
     return reply.code(201).send({ id });
   });
 
   app.post("/push/unsubscribe", { preHandler: requireAuth }, async (request, reply) => {
-    const parsed = subscriptionSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "Invalid input" });
-    }
+    const parsed = parseOrReply(reply, subscriptionSchema, request.body);
+    if (!parsed) return;
     const user = request.user as { id: string };
-    const ok = deleteSubscription(user.id, parsed.data.endpoint);
+    const ok = deleteSubscription(user.id, parsed.endpoint);
     return reply.send({ ok });
   });
 

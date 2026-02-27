@@ -8,7 +8,9 @@ export const schedulePacklistChecks = () => {
         const events = db
             .prepare("SELECT id, title, start_at FROM events WHERE packlist_required = 1 AND start_at BETWEEN ? AND ?")
             .all(now.toISOString(), inSevenDays.toISOString());
-        const admins = db.prepare("SELECT id FROM users WHERE role = 'admin'").all();
+        const admins = db
+            .prepare("SELECT id FROM users WHERE role = 'admin' AND status = 'approved'")
+            .all();
         for (const event of events) {
             const packlist = db.prepare("SELECT id FROM packlists WHERE event_id = ?").get(event.id);
             if (!packlist) {

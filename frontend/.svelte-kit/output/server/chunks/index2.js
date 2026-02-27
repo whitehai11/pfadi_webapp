@@ -900,6 +900,9 @@ function attributes(attrs, css_hash, classes, styles, flags = 0) {
   }
   return attr_str;
 }
+function stringify(value) {
+  return typeof value === "string" ? value : value == null ? "" : value + "";
+}
 function attr_class(value, hash, directives) {
   var result = to_class(value, hash, directives);
   return result ? ` class="${escape_html(result, true)}"` : "";
@@ -957,14 +960,15 @@ function ensure_array_like(array_like_or_iterator) {
 }
 export {
   attr as a,
-  bind_props as b,
-  attr_class as c,
+  attr_class as b,
+  bind_props as c,
   clsx as d,
   ensure_array_like as e,
   slot as f,
   sanitize_slots as g,
   head as h,
   is_passive_event as i,
+  stringify as j,
   render as r,
   store_get as s,
   unsubscribe_stores as u

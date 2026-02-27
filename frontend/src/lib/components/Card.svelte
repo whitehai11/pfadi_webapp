@@ -5,8 +5,12 @@
   export let interactive = false;
 </script>
 
-<section class:card-interactive={interactive} class="surface-card">
-  {#if title || description || eyebrow || $$slots.actions}
+<section
+  class:card-interactive={interactive}
+  class="surface-card"
+  data-has-description={description ? "true" : undefined}
+>
+  {#if title || eyebrow || $$slots.actions}
     <header class="surface-card__header">
       <div class="surface-card__copy">
         {#if eyebrow}
@@ -14,9 +18,6 @@
         {/if}
         {#if title}
           <h2 class="surface-card__title">{title}</h2>
-        {/if}
-        {#if description}
-          <p class="surface-card__description">{description}</p>
         {/if}
       </div>
       {#if $$slots.actions}

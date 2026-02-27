@@ -12,7 +12,8 @@
       | "nfc"
       | "packlist"
       | "settings"
-      | "admin";
+      | "admin"
+      | "chat";
   }[] = [];
   export let currentPath = "/";
   export let username = "";

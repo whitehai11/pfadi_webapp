@@ -26,6 +26,14 @@
       "_context.js"
     ]
   },
+  "_Logo.js": {
+    "file": "chunks/Logo.js",
+    "name": "Logo",
+    "imports": [
+      "_index2.js",
+      "_context.js"
+    ]
+  },
   "_SegmentedControl.js": {
     "file": "chunks/SegmentedControl.js",
     "name": "SegmentedControl",
@@ -33,6 +41,13 @@
       "_index2.js",
       "_context.js",
       "_escaping.js"
+    ]
+  },
+  "_app-settings.js": {
+    "file": "chunks/app-settings.js",
+    "name": "app-settings",
+    "imports": [
+      "_index.js"
     ]
   },
   "_auth.js": {
@@ -166,13 +181,15 @@
       "_index2.js",
       "_stores.js",
       "_Icon.js",
+      "_Logo.js",
       "_context.js",
       "_escaping.js",
       "_auth.js",
+      "_app-settings.js",
       "_index.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.-UGL-Lbz.css"
+      "_app/immutable/assets/_layout.DtOsSl1C.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -183,7 +200,7 @@
     "imports": [
       "_index2.js",
       "_Card.js",
-      "_Icon.js",
+      "_Logo.js",
       "_auth.js",
       "_escaping.js"
     ]
@@ -197,11 +214,13 @@
       "_index2.js",
       "_Card.js",
       "_SegmentedControl.js",
-      "_auth.js",
-      "_escaping.js"
+      "_Icon.js",
+      "_context.js",
+      "_escaping.js",
+      "_auth.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.DgX5coe2.css"
+      "_app/immutable/assets/_page.vIHvugm0.css"
     ]
   },
   "src/routes/calendar/+page.svelte": {
@@ -214,6 +233,19 @@
       "_auth.js",
       "_Card.js",
       "_SegmentedControl.js",
+      "_escaping.js"
+    ]
+  },
+  "src/routes/chat/+page.svelte": {
+    "file": "entries/pages/chat/_page.svelte.js",
+    "name": "entries/pages/chat/_page.svelte",
+    "src": "src/routes/chat/+page.svelte",
+    "isEntry": true,
+    "imports": [
+      "_index2.js",
+      "_Card.js",
+      "_auth.js",
+      "_app-settings.js",
       "_escaping.js"
     ]
   },

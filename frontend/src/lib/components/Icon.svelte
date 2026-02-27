@@ -15,7 +15,8 @@
     | "users"
     | "sparkles"
     | "chevron"
-    | "person" = "sparkles";
+    | "person"
+    | "chat" = "sparkles";
   export let size = 18;
 </script>
 
@@ -42,6 +43,8 @@
     <path fill="currentColor" d="M12 22a2.5 2.5 0 0 0 2.5-2.5h-5A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 1 0-14 0v5l-2 2v1h18v-1l-2-2z" />
   {:else if name === "person"}
     <path fill="currentColor" d="M12 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0 2c4.4 0 8 2.2 8 5v3H4v-3c0-2.8 3.6-5 8-5z" />
+  {:else if name === "chat"}
+    <path fill="currentColor" d="M5 4h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H9l-5 4v-4H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1v1.8L8.2 16H19a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H5z" />
   {:else if name === "chevron"}
     <path fill="currentColor" d="M8.6 5.6L15 12l-6.4 6.4 1.4 1.4L17.8 12 10 4.2 8.6 5.6z" />
   {:else}

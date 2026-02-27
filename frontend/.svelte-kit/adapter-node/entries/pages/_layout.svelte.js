@@ -1,15 +1,12 @@
-import { a as attr, b as bind_props, c as attr_class, e as ensure_array_like, h as head, s as store_get, d as clsx, f as slot, u as unsubscribe_stores } from "../../chunks/index2.js";
+import { a as attr, b as attr_class, e as ensure_array_like, c as bind_props, s as store_get, h as head, d as clsx, f as slot, u as unsubscribe_stores } from "../../chunks/index2.js";
 import { p as page } from "../../chunks/stores.js";
 import { I as Icon } from "../../chunks/Icon.js";
+import { L as Logo } from "../../chunks/Logo.js";
 import { _ as fallback } from "../../chunks/context.js";
 import { e as escape_html } from "../../chunks/escaping.js";
 import { r as roleLabel, s as session, c as clearToken } from "../../chunks/auth.js";
+import { r as resetAppSettings, a as appSettings } from "../../chunks/app-settings.js";
 import { g as get } from "../../chunks/index.js";
-function Logo($$renderer, $$props) {
-  let size = fallback($$props["size"], 48);
-  $$renderer.push(`<svg class="logo"${attr("width", size)}${attr("height", size)} viewBox="0 0 512 512" aria-hidden="true" focusable="false"><g fill="currentColor"><polygon points="141.788 352.225 255.996 352.225 370.212 352.225 370.212 321.898 255.996 321.898 141.788 321.898"></polygon><path d="M274.607 361.714h-37.222c0 18.466-8.673 73.956-47.726 92.186 9.108 13.012 27.337 19.526 41.655 16.918 0 0 2.8 30.632 24.682 41.182 21.884-10.549 24.683-41.182 24.683-41.182 14.317 2.609 32.547-3.905 41.654-16.918-39.053-18.229-47.726-73.72-47.726-92.186z"></path><path d="M177.6 311.784h36.582s.267-133.627-88.09-149.485C35.232 145.991-10.594 259.932 47.986 306.795c6.597-76.115 126.274-67.686 129.614 4.989z"></path><path d="M178.95 361.478c-3.127 22.128-23.958 33.844-42.18 33.844-19.526 0-33.843-19.534-39.053-28.642-22.136 32.547-12.228 65.734 22.127 76.81 40.358 13.012 92.423-28.634 92.423-82.012z"></path><path d="M385.908 162.299c-88.358 15.858-88.09 149.485-88.09 149.485H334.4c3.34-72.676 123.017-81.104 129.615-4.989 58.579-46.863 12.753-160.804-78.107-144.496z"></path><path d="M375.23 395.321c-18.222 0-39.053-11.716-42.18-33.844h-33.317c0 53.378 52.066 95.024 92.423 82.012 34.355-11.076 44.262-44.263 22.127-76.81-5.21 9.108-19.527 28.642-39.053 28.642z"></path><path d="M275.79 311.784c0-92.202 48.053-140.866 48.053-202.855 0-55.102-39.282-94.009-67.839-108.929-28.558 14.92-67.84 53.828-67.84 108.929 0 61.989 48.054 110.653 48.054 202.855z"></path></g></svg>`);
-  bind_props($$props, { size });
-}
 function Navigation($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let items = fallback($$props["items"], () => [], true);
@@ -45,18 +42,22 @@ function Navigation($$renderer, $$props) {
 function _layout($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
+    let visibleNavItems;
     let navOpen = false;
     const navItems = [
-      { href: "/", label: "Übersicht", icon: "home" },
+      { href: "/", label: "Ubersicht", icon: "home" },
       { href: "/calendar", label: "Kalender", icon: "calendar" },
       { href: "/inventory", label: "Material", icon: "inventory" },
+      { href: "/chat", label: "Chat", icon: "chat" },
       { href: "/nfc", label: "NFC", icon: "nfc" },
       { href: "/packlists", label: "Packlisten", icon: "packlist" },
       { href: "/settings", label: "Einstellungen", icon: "settings" }
     ];
     if (!get(session)) {
       navOpen = false;
+      resetAppSettings();
     }
+    visibleNavItems = navItems.filter((item) => item.href !== "/chat" || store_get($$store_subs ??= {}, "$appSettings", appSettings).chatEnabled);
     head("12qhfyh", $$renderer2, ($$renderer3) => {
       $$renderer3.title(($$renderer4) => {
         $$renderer4.push(`<title>Pfadfinder Orga</title>`);
@@ -67,7 +68,7 @@ function _layout($$renderer, $$props) {
       $$renderer2.push("<!--[-->");
       Navigation($$renderer2, {
         items: [
-          ...navItems,
+          ...visibleNavItems,
           ...store_get($$store_subs ??= {}, "$session", session).role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin" }] : []
         ],
         currentPath: store_get($$store_subs ??= {}, "$page", page).url.pathname,

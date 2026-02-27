@@ -1,4 +1,4 @@
-import { c as attr_class, s as store_get, u as unsubscribe_stores, a as attr } from "../../../chunks/index2.js";
+import { b as attr_class, s as store_get, u as unsubscribe_stores, a as attr } from "../../../chunks/index2.js";
 import { C as Card } from "../../../chunks/Card.js";
 import { s as session } from "../../../chunks/auth.js";
 import { e as escape_html } from "../../../chunks/escaping.js";

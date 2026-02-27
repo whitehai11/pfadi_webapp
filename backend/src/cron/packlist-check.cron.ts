@@ -12,7 +12,9 @@ export const schedulePacklistChecks = () => {
       )
       .all(now.toISOString(), inSevenDays.toISOString()) as { id: string; title: string; start_at: string }[];
 
-    const admins = db.prepare("SELECT id FROM users WHERE role = 'admin'").all() as { id: string }[];
+    const admins = db
+      .prepare("SELECT id FROM users WHERE role = 'admin' AND status = 'approved'")
+      .all() as { id: string }[];
 
     for (const event of events) {
       const packlist = db.prepare("SELECT id FROM packlists WHERE event_id = ?").get(event.id) as

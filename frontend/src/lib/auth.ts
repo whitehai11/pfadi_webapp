@@ -4,6 +4,7 @@ export type UserSession = {
   id: string;
   username: string;
   role: "admin" | "user" | "materialwart";
+  status?: "approved";
 };
 
 const tokenKey = "pfadi_token";

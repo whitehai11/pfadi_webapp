@@ -12,6 +12,7 @@ export type AppSettings = {
   baseUrl: string;
   adminEmails: string[];
   dataDir: string;
+  chatUploadMaxBytes: number;
 };
 
 const parseList = (value: string | undefined): string[] => {
@@ -19,6 +20,7 @@ const parseList = (value: string | undefined): string[] => {
   return value
     .split(",")
     .map((item) => item.trim())
+    .map((item) => item.toLowerCase())
     .filter(Boolean);
 };
 
@@ -33,7 +35,8 @@ export const settings: AppSettings = {
   vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:admin@example.org",
   baseUrl: process.env.BASE_URL ?? "http://localhost:3000",
   adminEmails: parseList(process.env.ADMIN_EMAILS),
-  dataDir: process.env.DATA_DIR ?? "./data"
+  dataDir: process.env.DATA_DIR ?? "./data",
+  chatUploadMaxBytes: Number(process.env.CHAT_UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024)
 };
 
 if (!settings.jwtSecret || settings.jwtSecret.length < 16) {

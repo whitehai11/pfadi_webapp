@@ -1,7 +1,7 @@
 import cron from "node-cron";
 import { db } from "../db/database.js";
 import { getRules, listUsersForRule, sendRuleToUsers } from "../services/push-rules.service.js";
-const listUsers = () => db.prepare("SELECT id, email as username, role FROM users").all();
+const listUsers = () => db.prepare("SELECT id, email as username, role FROM users WHERE status = 'approved'").all();
 export const scheduleReminders = () => {
     cron.schedule("*/30 * * * *", async () => {
         const now = new Date();
@@ -44,7 +44,7 @@ export const scheduleReminders = () => {
                         continue;
                 }
                 const missingUsers = db
-                    .prepare("SELECT id, email as username, role FROM users WHERE id NOT IN (SELECT user_id FROM event_availability WHERE event_id = ?)")
+                    .prepare("SELECT id, email as username, role FROM users WHERE status = 'approved' AND id NOT IN (SELECT user_id FROM event_availability WHERE event_id = ?)")
                     .all(event.id);
                 const targets = missingUsers.filter((user) => {
                     if (rule.target_user_id && rule.target_user_id !== user.id)

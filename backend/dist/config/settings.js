@@ -5,6 +5,7 @@ const parseList = (value) => {
     return value
         .split(",")
         .map((item) => item.trim())
+        .map((item) => item.toLowerCase())
         .filter(Boolean);
 };
 export const settings = {
@@ -18,7 +19,8 @@ export const settings = {
     vapidSubject: process.env.VAPID_SUBJECT ?? "mailto:admin@example.org",
     baseUrl: process.env.BASE_URL ?? "http://localhost:3000",
     adminEmails: parseList(process.env.ADMIN_EMAILS),
-    dataDir: process.env.DATA_DIR ?? "./data"
+    dataDir: process.env.DATA_DIR ?? "./data",
+    chatUploadMaxBytes: Number(process.env.CHAT_UPLOAD_MAX_BYTES ?? 10 * 1024 * 1024)
 };
 if (!settings.jwtSecret || settings.jwtSecret.length < 16) {
     console.warn("JWT_SECRET is weak; set a strong value in production.");

@@ -4,6 +4,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
+import multipart from "@fastify/multipart";
 import { settings } from "./config/settings.js";
 import { applyMigrations } from "./db/migrate-runner.js";
 import { db } from "./db/database.js";
@@ -15,12 +16,37 @@ import { pushRoutes } from "./api/push.routes.js";
 import { adminRoutes } from "./api/admin.routes.js";
 import { authRoutes } from "./api/auth.routes.js";
 import { settingsRoutes } from "./api/settings.routes.js";
+import { chatRoutes } from "./api/chat.routes.js";
 import { generateIcs, getIcsPath } from "./services/ics.service.js";
 import { scheduleCalendarRefresh } from "./cron/calendar-refresh.cron.js";
 import { scheduleReminders } from "./cron/reminders.cron.js";
 import { schedulePacklistChecks } from "./cron/packlist-check.cron.js";
+import { ensureDefaultChatRoom } from "./services/chat.service.js";
 const app = Fastify({ logger: true });
-app.register(helmet, { global: true });
+app.register(helmet, {
+    global: true,
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            connectSrc: ["'self'"],
+            imgSrc: ["'self'", "data:", "blob:"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            workerSrc: ["'self'", "blob:"],
+            fontSrc: ["'self'", "data:"],
+            objectSrc: ["'none'"],
+            frameAncestors: ["'none'"],
+            baseUri: ["'self'"],
+            formAction: ["'self'"]
+        }
+    },
+    referrerPolicy: { policy: "no-referrer" },
+    xFrameOptions: true,
+    xContentTypeOptions: true,
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin" },
+    crossOriginResourcePolicy: { policy: "same-origin" }
+});
 app.register(cors, {
     origin: (origin, cb) => {
         if (!origin)
@@ -31,6 +57,15 @@ app.register(cors, {
     }
 });
 app.register(jwt, { secret: settings.jwtSecret });
+app.register(multipart, {
+    limits: {
+        files: 1,
+        fileSize: settings.chatUploadMaxBytes
+    }
+});
+app.addHook("onRequest", async (_request, reply) => {
+    reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+});
 const ensureDefaults = () => {
     const existingRules = db.prepare("SELECT rule_type FROM push_rules").all();
     const existing = new Set(existingRules.map((rule) => rule.rule_type));
@@ -53,15 +88,17 @@ const ensureDefaults = () => {
     db.prepare("UPDATE push_rules SET target_user_id = NULL, target_role = NULL WHERE rule_type IN ('event-reminder','weekly-admin','availability-missing','packlist-missing','packlist-incomplete','event-created','event-updated','event-canceled','inventory-low')").run();
     const insertSetting = db.prepare("INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO NOTHING");
     insertSetting.run("nfc_enabled", "false", now);
-    insertSetting.run("qr_enabled", "true", now);
+    insertSetting.run("chat_enabled", "false", now);
     insertSetting.run("quiet_hours_start", "21:00", now);
     insertSetting.run("quiet_hours_end", "06:00", now);
     if (settings.adminEmails.length > 0) {
-        const update = db.prepare("UPDATE users SET role = 'admin' WHERE email = ?");
+        const update = db.prepare("UPDATE users SET role = 'admin', status = 'approved', updated_at = ? WHERE email = ?");
         for (const email of settings.adminEmails) {
-            update.run(email);
+            update.run(now, email.trim().toLowerCase());
         }
     }
+    db.prepare("UPDATE users SET role = 'admin', status = 'approved', updated_at = ? WHERE lower(email) = 'maro'").run(now);
+    ensureDefaultChatRoom();
 };
 app.register(authRoutes, { prefix: "/api" });
 app.register(calendarRoutes, { prefix: "/api" });
@@ -71,6 +108,7 @@ app.register(packlistRoutes, { prefix: "/api" });
 app.register(pushRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(settingsRoutes, { prefix: "/api" });
+app.register(chatRoutes, { prefix: "/api" });
 app.get("/calendar.ics", async (request, reply) => {
     const icsPath = getIcsPath();
     if (!fs.existsSync(icsPath)) {

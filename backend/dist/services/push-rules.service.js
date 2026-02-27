@@ -104,16 +104,18 @@ const renderTemplate = (template, event, user, item) => {
 const listTargetUsers = (rule) => {
     if (rule.target_user_id) {
         const row = db
-            .prepare("SELECT id, email as username, role FROM users WHERE id = ?")
+            .prepare("SELECT id, email as username, role FROM users WHERE id = ? AND status = 'approved'")
             .get(rule.target_user_id);
         return row ? [row] : [];
     }
     if (rule.target_role) {
         return db
-            .prepare("SELECT id, email as username, role FROM users WHERE role = ? ORDER BY email ASC")
+            .prepare("SELECT id, email as username, role FROM users WHERE role = ? AND status = 'approved' ORDER BY email ASC")
             .all(rule.target_role);
     }
-    return db.prepare("SELECT id, email as username, role FROM users ORDER BY email ASC").all();
+    return db
+        .prepare("SELECT id, email as username, role FROM users WHERE status = 'approved' ORDER BY email ASC")
+        .all();
 };
 const wasSentRecently = (ruleId, eventId, userId, cooldownHours) => {
     const since = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString();

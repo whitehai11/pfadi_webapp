@@ -1,13 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Card from "$lib/components/Card.svelte";
-  import Icon from "$lib/components/Icon.svelte";
+  import Logo from "$lib/components/Logo.svelte";
   import { apiFetch } from "$lib/api";
+  import { refreshAppSettings } from "$lib/app-settings";
   import { setToken, session } from "$lib/auth";
 
   let username = "";
   let password = "";
   let message = "";
+  let authMode: "login" | "request" | "requested" = "login";
 
   let loadingDashboard = false;
   let upcomingEvents: any[] = [];
@@ -22,22 +24,23 @@
         body: JSON.stringify({ username, password })
       });
       setToken(result.token);
-      message = "Login erfolgreich.";
-    } catch {
-      message = "Login fehlgeschlagen.";
+      await refreshAppSettings();
+    } catch (err) {
+      message = err instanceof Error ? err.message : "Login fehlgeschlagen.";
     }
   };
 
-  const register = async () => {
+  const requestAccount = async () => {
     message = "";
     try {
       await apiFetch("/api/auth/register", {
         method: "POST",
         body: JSON.stringify({ username, password })
       });
-      message = "Registrierung abgeschlossen. Bitte einloggen.";
-    } catch {
-      message = "Registrierung fehlgeschlagen.";
+      authMode = "requested";
+      password = "";
+    } catch (err) {
+      message = err instanceof Error ? err.message : "Account konnte nicht beantragt werden.";
     }
   };
 
@@ -95,38 +98,46 @@
 </script>
 
 {#if !$session}
-  <section class="auth-screen">
-    <div class="auth-card">
-      <div class="auth-brand">
-        <div class="logo-badge">
-          <Icon name="sparkles" size={26} />
-        </div>
-        <div class="page-intro">
-          <p class="page-kicker">Pfadfinder Organisation</p>
-          <h1 class="page-title">Ruhig organisiert. Klar im Alltag.</h1>
-          <p class="page-description">
-            Die Webapp bündelt Termine, Material und Rückmeldungen in einer klaren Oberfläche.
-          </p>
-        </div>
+  <section class="auth-screen auth-screen--minimal">
+    <div class="auth-card auth-card--minimal">
+      <div class="auth-logo">
+        <Logo size={30} />
       </div>
 
-      <form class="auth-form" on:submit|preventDefault={login}>
-        <div class="field">
-          <label for="username">Benutzername</label>
-          <input id="username" class="input" type="text" bind:value={username} placeholder="z. B. max" />
+      {#if authMode === "requested"}
+        <div class="auth-confirmation">
+          <p>Dein Account wurde beantragt.</p>
+          <p class="text-muted">Ein Admin pruft deine Anfrage.</p>
+          <button class="btn btn-primary" type="button" on:click={() => (authMode = "login")}>Zuruck zum Login</button>
         </div>
-        <div class="field">
-          <label for="password">Passwort</label>
-          <input id="password" class="input" type="password" bind:value={password} placeholder="Mindestens 8 Zeichen" />
-        </div>
-        <div class="actions">
-          <button class="btn btn-primary" type="submit">Einloggen</button>
-          <button class="btn btn-outline" type="button" on:click={register}>Registrieren</button>
-        </div>
-        {#if message}
-          <p class="status-banner">{message}</p>
-        {/if}
-      </form>
+      {:else}
+        <form class="auth-form" on:submit|preventDefault={authMode === "login" ? login : requestAccount}>
+          <div class="field">
+            <label for="username">Benutzername</label>
+            <input id="username" class="input" type="text" bind:value={username} autocomplete="username" />
+          </div>
+
+          <div class="field">
+            <label for="password">Passwort</label>
+            <input id="password" class="input" type="password" bind:value={password} autocomplete="current-password" />
+          </div>
+
+          <button class="btn btn-primary" type="submit">
+            {authMode === "login" ? "Einloggen" : "Account beantragen"}
+          </button>
+
+          <button class="auth-link" type="button" on:click={() => {
+            message = "";
+            authMode = authMode === "login" ? "request" : "login";
+          }}>
+            {authMode === "login" ? "Kein Zugang? Account beantragen" : "Zuruck zum Login"}
+          </button>
+
+          {#if message}
+            <p class="status-banner">{message}</p>
+          {/if}
+        </form>
+      {/if}
     </div>
   </section>
 {:else}
@@ -138,7 +149,7 @@
     </section>
 
     <section class="dashboard-grid">
-      <Card title="Nächste Termine" description="Die nächsten gemeinsamen Einsätze und Treffen." interactive={true}>
+      <Card title="Nächste Termine" interactive={true}>
         <div slot="actions">
           <span class="count-pill">{upcomingEvents.length}</span>
         </div>
@@ -162,7 +173,7 @@
         {/if}
       </Card>
 
-      <Card title="Material Status" description="Artikel unter Mindestmenge werden hier priorisiert." interactive={true}>
+      <Card title="Material Status" interactive={true}>
         <div slot="actions">
           <span class="count-pill">{lowStockItems.length}</span>
         </div>
@@ -186,7 +197,7 @@
         {/if}
       </Card>
 
-      <Card title="Offene Rückmeldungen" description="Termine, bei denen deine Antwort noch fehlt." interactive={true}>
+      <Card title="Offene Rückmeldungen" interactive={true}>
         <div slot="actions">
           <span class="count-pill">{openResponses.length}</span>
         </div>

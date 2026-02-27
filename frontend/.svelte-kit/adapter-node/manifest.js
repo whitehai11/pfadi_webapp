@@ -10,7 +10,7 @@ return {
 	assets: new Set(["icon.svg","manifest.json","service-worker.js","service-worker.js"]),
 	mimeTypes: {".svg":"image/svg+xml",".json":"application/json",".js":"text/javascript"},
 	_: {
-		client: {start:"_app/immutable/entry/start.CLSt1nNP.js",app:"_app/immutable/entry/app.SdxKO3RV.js",imports:["_app/immutable/entry/start.CLSt1nNP.js","_app/immutable/chunks/CVP6w6Fs.js","_app/immutable/chunks/w-mzlFmr.js","_app/immutable/chunks/JwFx-ZGo.js","_app/immutable/entry/app.SdxKO3RV.js","_app/immutable/chunks/w-mzlFmr.js","_app/immutable/chunks/BORbJVnw.js","_app/immutable/chunks/JwFx-ZGo.js","_app/immutable/chunks/B2pNWRM-.js","_app/immutable/chunks/NFaQR_Px.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
+		client: {start:"_app/immutable/entry/start.NgkWRebO.js",app:"_app/immutable/entry/app.C1XUCsK1.js",imports:["_app/immutable/entry/start.NgkWRebO.js","_app/immutable/chunks/CZu8rFn6.js","_app/immutable/chunks/DAs5t-Nx.js","_app/immutable/chunks/rriXQcEI.js","_app/immutable/entry/app.C1XUCsK1.js","_app/immutable/chunks/DAs5t-Nx.js","_app/immutable/chunks/CcQb_aND.js","_app/immutable/chunks/rriXQcEI.js","_app/immutable/chunks/Cv7Wd-Tq.js","_app/immutable/chunks/EZsJndWO.js"],stylesheets:[],fonts:[],uses_env_dynamic_public:false},
 		nodes: [
 			__memo(() => import('./nodes/0.js')),
 			__memo(() => import('./nodes/1.js')),
@@ -21,7 +21,8 @@ return {
 			__memo(() => import('./nodes/6.js')),
 			__memo(() => import('./nodes/7.js')),
 			__memo(() => import('./nodes/8.js')),
-			__memo(() => import('./nodes/9.js'))
+			__memo(() => import('./nodes/9.js')),
+			__memo(() => import('./nodes/10.js'))
 		],
 		remotes: {
 			
@@ -49,38 +50,45 @@ return {
 				endpoint: null
 			},
 			{
+				id: "/chat",
+				pattern: /^\/chat\/?$/,
+				params: [],
+				page: { layouts: [0,], errors: [1,], leaf: 5 },
+				endpoint: null
+			},
+			{
 				id: "/inventory",
 				pattern: /^\/inventory\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 5 },
+				page: { layouts: [0,], errors: [1,], leaf: 6 },
 				endpoint: null
 			},
 			{
 				id: "/nfc",
 				pattern: /^\/nfc\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 6 },
+				page: { layouts: [0,], errors: [1,], leaf: 7 },
 				endpoint: null
 			},
 			{
 				id: "/packlists",
 				pattern: /^\/packlists\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 7 },
+				page: { layouts: [0,], errors: [1,], leaf: 8 },
 				endpoint: null
 			},
 			{
 				id: "/packlists/[eventId]",
 				pattern: /^\/packlists\/([^/]+?)\/?$/,
 				params: [{"name":"eventId","optional":false,"rest":false,"chained":false}],
-				page: { layouts: [0,], errors: [1,], leaf: 8 },
+				page: { layouts: [0,], errors: [1,], leaf: 9 },
 				endpoint: null
 			},
 			{
 				id: "/settings",
 				pattern: /^\/settings\/?$/,
 				params: [],
-				page: { layouts: [0,], errors: [1,], leaf: 9 },
+				page: { layouts: [0,], errors: [1,], leaf: 10 },
 				endpoint: null
 			}
 		],

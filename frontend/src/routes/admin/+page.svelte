@@ -2,7 +2,10 @@
   import { onMount } from "svelte";
   import Card from "$lib/components/Card.svelte";
   import SegmentedControl from "$lib/components/SegmentedControl.svelte";
+  import SettingsRow from "$lib/components/SettingsRow.svelte";
+  import SlideOverDetail from "$lib/components/SlideOverDetail.svelte";
   import { apiFetch } from "$lib/api";
+  import { refreshAppSettings } from "$lib/app-settings";
   import { session } from "$lib/auth";
 
   let users: any[] = [];
@@ -12,6 +15,10 @@
   let pushTestMessage = "";
   let quietStart = "21:00";
   let quietEnd = "06:00";
+  let activeReminderId: string | null = null;
+  let activeReminderPanel: "remind" | "repeat" | "audience" | "message" | null = null;
+  let reminderWindowEnabled: Record<string, boolean> = {};
+  let approvalRole: Record<string, "admin" | "user" | "materialwart"> = {};
 
   const ruleTypes = [
     { value: "event-reminder", label: "Termin-Erinnerung" },
@@ -38,8 +45,8 @@
     { value: "weeks", label: "Wochen" }
   ];
 
-  const scheduleOptions = [
-    { value: "", label: "Kein" },
+  const repeatOptions = [
+    { value: "", label: "Aus" },
     { value: "daily", label: "Taglich" },
     { value: "weekly", label: "Wochentlich" },
     { value: "monthly", label: "Monatlich" }
@@ -75,37 +82,55 @@
   const ruleLabel = (value: string) => ruleTypes.find((type) => type.value === value)?.label ?? value;
   const reminderRoleLabel = (value: string) =>
     reminderAudienceOptions.find((option) => option.value === value)?.label ?? "Alle passenden";
+  const repeatLabel = (value: string) => repeatOptions.find((option) => option.value === value)?.label ?? "Aus";
+  const pendingUsers = () => users.filter((user) => user.status === "pending");
+
+  const normalizeRule = (rule: any) => {
+    const leadHours = Number(rule.lead_time_hours) || 0;
+    const { value, unit } = inferUnit(leadHours);
+    return {
+      ...rule,
+      enabled: rule.enabled === 1 || rule.enabled === true,
+      target_user_id: rule.target_user_id ?? "",
+      target_role: rule.target_role ?? "",
+      lead_value: value,
+      lead_unit: unit,
+      title_template: rule.title_template ?? "",
+      body_template: rule.body_template ?? "",
+      min_response_percent: rule.min_response_percent ?? "",
+      event_type: rule.event_type ?? "",
+      send_start: rule.send_start ?? "",
+      send_end: rule.send_end ?? "",
+      schedule_start_date: rule.schedule_start_date ?? "",
+      schedule_every: rule.schedule_every ?? "",
+      schedule_time: rule.schedule_time ?? "",
+      cooldown_hours: rule.cooldown_hours ?? 24
+    };
+  };
 
   const load = async () => {
     error = "";
     try {
       users = await apiFetch("/api/admin/users");
       settings = await apiFetch("/api/admin/settings");
-      rules = (await apiFetch("/api/admin/push-rules")).map((rule: any) => {
-        const leadHours = Number(rule.lead_time_hours) || 0;
-        const { value, unit } = inferUnit(leadHours);
-        return {
-          ...rule,
-          enabled: rule.enabled === 1 || rule.enabled === true,
-          target_user_id: rule.target_user_id ?? "",
-          target_role: rule.target_role ?? "",
-          lead_value: value,
-          lead_unit: unit,
-          title_template: rule.title_template ?? "",
-          body_template: rule.body_template ?? "",
-          min_response_percent: rule.min_response_percent ?? "",
-          event_type: rule.event_type ?? "",
-          send_start: rule.send_start ?? "",
-          send_end: rule.send_end ?? "",
-          schedule_start_date: rule.schedule_start_date ?? "",
-          schedule_every: rule.schedule_every ?? "",
-          schedule_time: rule.schedule_time ?? "",
-          cooldown_hours: rule.cooldown_hours ?? 24
-        };
-      });
+      rules = (await apiFetch("/api/admin/push-rules")).map(normalizeRule);
+      reminderWindowEnabled = rules.reduce(
+        (acc, rule) => ({
+          ...acc,
+          [rule.id]: Boolean(rule.send_start || rule.send_end)
+        }),
+        {}
+      );
       const map = new Map(settings.map((item) => [item.key, item.value]));
       quietStart = map.get("quiet_hours_start") ?? "21:00";
       quietEnd = map.get("quiet_hours_end") ?? "06:00";
+      approvalRole = users.reduce(
+        (acc, user) => ({
+          ...acc,
+          [user.id]: user.role || "user"
+        }),
+        {} as Record<string, "admin" | "user" | "materialwart">
+      );
     } catch {
       error = "Admin-Daten konnten nicht geladen werden.";
     }
@@ -124,6 +149,7 @@
       method: "PUT",
       body: JSON.stringify(updated.map((item) => ({ key: item.key, value: item.value })))
     });
+    await refreshAppSettings();
     await load();
   };
 
@@ -172,7 +198,7 @@
     await load();
   };
 
-  const updateRule = async (rule: any) => {
+  const updateRule = async (rule: any, closePanel = false) => {
     const multiplier = rule.lead_unit === "weeks" ? 168 : rule.lead_unit === "days" ? 24 : 1;
     const leadHours =
       rule.rule_type === "event-reminder"
@@ -203,13 +229,83 @@
           rule.cooldown_hours === "" || rule.cooldown_hours === null ? null : Number(rule.cooldown_hours)
       })
     });
+
     await load();
+
+    if (closePanel) {
+      closeReminderPanel();
+    }
   };
 
   const deleteRule = async (id: string) => {
     if (!confirm("Regel wirklich loschen?")) return;
     await apiFetch(`/api/admin/push-rules/${id}`, { method: "DELETE" });
+    closeReminderPanel();
     await load();
+  };
+
+  const updateUserStatus = async (id: string, status: "approved" | "rejected") => {
+    await apiFetch(`/api/admin/users/${id}/status`, {
+      method: "PUT",
+      body: JSON.stringify({
+        status,
+        role: status === "approved" ? approvalRole[id] ?? "user" : undefined
+      })
+    });
+    await load();
+  };
+
+  const openReminderPanel = (ruleId: string, panel: "remind" | "repeat" | "audience" | "message") => {
+    activeReminderId = ruleId;
+    activeReminderPanel = panel;
+  };
+
+  const closeReminderPanel = () => {
+    activeReminderId = null;
+    activeReminderPanel = null;
+  };
+
+  const formatLeadSummary = (rule: any) => {
+    const unitMap: Record<string, string> = { hours: "Stunde", days: "Tag", weeks: "Woche" };
+    const pluralMap: Record<string, string> = { hours: "Stunden", days: "Tage", weeks: "Wochen" };
+    const value = Number(rule.lead_value || 1);
+    const unit = value === 1 ? unitMap[rule.lead_unit] : pluralMap[rule.lead_unit];
+    const eventScope = rule.event_type ? `, nur ${rule.event_type}` : "";
+    return `${value} ${unit} vorher${eventScope}`;
+  };
+
+  const formatRepeatSummary = (rule: any) => {
+    if (!rule.schedule_every) return "Keine Wiederholung";
+    const cooldown = Number(rule.cooldown_hours || 0);
+    const parts = [repeatLabel(rule.schedule_every)];
+    if (cooldown > 0) parts.push(`alle ${cooldown} Stunden`);
+    if (rule.schedule_time) parts.push(`um ${rule.schedule_time}`);
+    return parts.join(", ");
+  };
+
+  const formatAudienceSummary = (rule: any) => {
+    const selectedUser = users.find((user) => user.id === rule.target_user_id);
+    if (selectedUser) return selectedUser.email;
+    return reminderRoleLabel(rule.target_role);
+  };
+
+  const formatMessageSummary = (rule: any) => {
+    const title = rule.title_template || "Ohne Titel";
+    const preview = (rule.body_template || "").trim().replace(/\s+/g, " ");
+    if (!preview) return title;
+    const shortened = preview.length > 44 ? `${preview.slice(0, 44)}...` : preview;
+    return `${title} - ${shortened}`;
+  };
+
+  const toggleReminderWindow = (rule: any, enabled: boolean) => {
+    reminderWindowEnabled = {
+      ...reminderWindowEnabled,
+      [rule.id]: enabled
+    };
+    if (!enabled) {
+      rule.send_start = "";
+      rule.send_end = "";
+    }
   };
 
   onMount(load);
@@ -223,7 +319,7 @@
   </section>
 
   {#if !$session || $session.role !== "admin"}
-    <Card title="Kein Zugriff" description="Dieser Bereich ist nur fur Admins sichtbar.">
+    <Card title="Kein Zugriff">
       <p class="text-muted">Bitte mit einem Administrationskonto anmelden.</p>
     </Card>
   {:else}
@@ -231,14 +327,41 @@
       <p class="status-banner error">{error}</p>
     {/if}
 
+    <Card title="Benutzeranfragen">
+      {#if pendingUsers().length === 0}
+        <p class="text-muted">Zurzeit warten keine neuen Accounts auf Freigabe.</p>
+      {:else}
+        <div class="hairline-list">
+          {#each pendingUsers() as user}
+            <div class="approval-row">
+              <div class="list-meta">
+                <strong>{user.email}</strong>
+                <span class="text-muted">Beantragt am {new Date(user.created_at).toLocaleString("de-DE")}</span>
+              </div>
+
+              <div class="approval-actions">
+                <select class="select" bind:value={approvalRole[user.id]}>
+                  <option value="user">Nutzer</option>
+                  <option value="materialwart">Materialwart</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <button class="btn btn-primary" type="button" on:click={() => updateUserStatus(user.id, "approved")}>Freigeben</button>
+                <button class="btn btn-danger" type="button" on:click={() => updateUserStatus(user.id, "rejected")}>Ablehnen</button>
+              </div>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </Card>
+
     <section class="split-grid">
-      <Card title="Rollenverwaltung" description="Rollen konnen direkt und ohne Seitenwechsel angepasst werden.">
+      <Card title="Rollenverwaltung">
         <div class="hairline-list">
           {#each users as user}
             <div class="list-row">
               <div class="list-meta">
                 <strong>{user.email}</strong>
-                <span class="text-muted">Benutzerrolle</span>
+                <span class="text-muted">Status: {user.status}</span>
               </div>
               <select class="select" bind:value={user.role} on:change={(e) => updateRole(user.id, e.currentTarget.value)}>
                 <option value="user">Nutzer</option>
@@ -250,13 +373,17 @@
         </div>
       </Card>
 
-      <Card title="Feature-Flags" description="Systemschalter beeinflussen Verhalten direkt nach dem Speichern.">
-        {#each settings as item}
-          {#if item.key === "nfc_enabled"}
+      <Card title="Funktionen">
+        <div class="hairline-list">
+          {#each settings.filter((item) => item.key === "chat_enabled" || item.key === "nfc_enabled") as item}
             <div class="toggle-row">
               <div class="list-meta">
-                <strong>NFC aktivieren</strong>
-                <span class="text-muted">NFC-Kennungen fur Material anzeigen und schreiben.</span>
+                <strong>{item.key === "chat_enabled" ? "Chat aktivieren" : "NFC aktivieren"}</strong>
+                <span class="text-muted">
+                  {item.key === "chat_enabled"
+                    ? "Interne Chatraume und Dateianhange fur freigegebene Mitglieder sichtbar machen."
+                    : "NFC-Kennungen fur Material anzeigen und schreiben."}
+                </span>
               </div>
               <label class="toggle">
                 <input
@@ -266,13 +393,13 @@
                 />
               </label>
             </div>
-          {/if}
-        {/each}
+          {/each}
+        </div>
       </Card>
     </section>
 
     <section class="split-grid">
-      <Card title="Ruhezeiten" description="In diesem Zeitraum werden Benachrichtigungen nicht versendet.">
+      <Card title="Ruhezeiten">
         <div class="split-grid">
           <div class="field">
             <label for="quietStart">Beginn</label>
@@ -289,7 +416,7 @@
         </div>
       </Card>
 
-      <Card title="Push-Test" description="Prufe, ob Benachrichtigungen am Gerat ankommen.">
+      <Card title="Push-Test">
         <div class="actions">
           <button class="btn btn-outline" type="button" on:click={sendTestPush}>Test-Benachrichtigung senden</button>
           <button class="btn btn-primary" type="button" on:click={addRule}>Neue Regel</button>
@@ -301,152 +428,238 @@
       </Card>
     </section>
 
-    <Card title="Push-Regeln" description="Jede Regel bleibt in vier klare Abschnitte gegliedert.">
+    <Card title="Push-Regeln">
       <div class="card-grid">
         {#each rules as rule}
-          <Card title={ruleLabel(rule.rule_type)} description="Erinnerungen und Trigger fur Termine, Material und Packlisten." interactive={true}>
-            <div slot="actions" class="actions">
-              <span class="badge badge-secondary">{rule.rule_type}</span>
-              <div class="toggle-row reminder-toggle">
-                <div class="list-meta">
-                  <strong>Erinnerung aktiv</strong>
-                  <span class="text-muted">Nur aktive Erinnerungen werden verschickt.</span>
+          {#if rule.rule_type === "event-reminder"}
+            <section class="reminder-settings-page">
+              <div class="reminder-hero">
+                <div class="reminder-hero__copy">
+                  <p class="reminder-hero__kicker">Termin-Erinnerung</p>
+                  <h2 class="reminder-hero__title">Erinnerungen ruhig und klar einstellen.</h2>
+                  <p class="reminder-hero__text">Die wichtigsten Einstellungen sind als Liste aufgebaut und offnen sich nur bei Bedarf im Detail.</p>
                 </div>
-                <label class="toggle">
-                  <input type="checkbox" bind:checked={rule.enabled} />
-                </label>
+                <div class="actions reminder-hero__actions">
+                  <button class="btn btn-primary" type="button" on:click={() => updateRule(rule)}>Speichern</button>
+                  <button class="btn btn-danger" type="button" on:click={() => deleteRule(rule.id)}>Loschen</button>
+                </div>
               </div>
-              <button class="btn btn-outline" type="button" on:click={() => updateRule(rule)}>Speichern</button>
-              <button class="btn btn-danger" type="button" on:click={() => deleteRule(rule.id)}>Loschen</button>
-            </div>
 
-            {#if rule.rule_type === "event-reminder"}
-              <div class="split-grid reminder-form">
-                <Card title="Zeitraum" description="Lege fest, auf welche Termine sich die Erinnerung bezieht und wie fruh sie ankommen soll.">
-                  <div class="form-grid">
-                    <div class="field">
-                      <label for={`rule-lead-${rule.id}`}>Wie lange vorher soll erinnert werden?</label>
-                      <input id={`rule-lead-${rule.id}`} class="input" type="number" min="1" bind:value={rule.lead_value} />
-                      <p class="hint">Die Erinnerung wird vor dem Termin zu diesem Zeitpunkt verschickt.</p>
-                    </div>
-
-                    <div class="field">
-                      <p class="fieldset-label">Zeiteinheit</p>
-                      <SegmentedControl bind:value={rule.lead_unit} options={leadUnitOptions} ariaLabel="Zeiteinheit fur Vorlauf" />
-                    </div>
-
-                    <div class="field">
-                      <p class="fieldset-label">Welche Termine sollen berucksichtigt werden?</p>
-                      <SegmentedControl bind:value={rule.event_type} options={eventTypeOptions} ariaLabel="Terminart" />
-                      <p class="hint">Wenn du nichts einschrankst, gilt die Erinnerung fur alle Terminarten.</p>
-                    </div>
+              <div class="reminder-settings-card">
+                <div class="reminder-toggle-row">
+                  <div class="list-meta">
+                    <strong>Erinnerung aktiv</strong>
+                    <span class="text-muted">{rule.enabled ? "Die Erinnerung wird derzeit verschickt." : "Die Erinnerung ist pausiert."}</span>
                   </div>
-                </Card>
+                  <label class="toggle">
+                    <input type="checkbox" bind:checked={rule.enabled} />
+                  </label>
+                </div>
 
-                <Card title="Erinnerung" description="Hier bestimmst du, wann die Nachricht verschickt werden darf und wie oft sie wiederkommt.">
-                  <div class="form-grid">
+                <SettingsRow
+                  first={true}
+                  title="Erinnern"
+                  subtitle={formatLeadSummary(rule)}
+                  on:click={() => openReminderPanel(rule.id, "remind")}
+                />
+                <SettingsRow
+                  title="Wiederholen"
+                  subtitle={formatRepeatSummary(rule)}
+                  on:click={() => openReminderPanel(rule.id, "repeat")}
+                />
+                <SettingsRow
+                  title="Zielgruppe"
+                  subtitle={formatAudienceSummary(rule)}
+                  on:click={() => openReminderPanel(rule.id, "audience")}
+                />
+                <SettingsRow
+                  last={true}
+                  title="Nachricht"
+                  subtitle={formatMessageSummary(rule)}
+                  on:click={() => openReminderPanel(rule.id, "message")}
+                />
+              </div>
+
+              <SlideOverDetail
+                open={activeReminderId === rule.id && activeReminderPanel === "remind"}
+                title="Wann soll erinnert werden?"
+                subtitle="Lege fest, wie fruh die Nachricht vor dem Termin ankommt."
+                onClose={closeReminderPanel}
+              >
+                <div class="detail-group">
+                  <div class="field">
+                    <label for={`rule-lead-${rule.id}`}>Wie lange vorher?</label>
+                    <input id={`rule-lead-${rule.id}`} class="input" type="number" min="1" bind:value={rule.lead_value} />
+                  </div>
+
+                  <div class="field">
+                    <p class="fieldset-label">Einheit</p>
+                    <SegmentedControl bind:value={rule.lead_unit} options={leadUnitOptions} ariaLabel="Einheit fur die Erinnerung" />
+                  </div>
+                </div>
+
+                <div class="detail-group">
+                  <div class="field">
+                    <p class="fieldset-label">Fur welche Termine?</p>
+                    <SegmentedControl bind:value={rule.event_type} options={eventTypeOptions} ariaLabel="Terminart fur Erinnerung" />
+                  </div>
+                </div>
+
+                <div class="detail-group">
+                  <div class="toggle-row detail-inline-toggle">
+                    <div class="list-meta">
+                      <strong>Zeitfenster nutzen</strong>
+                      <span class="text-muted">Nur in einem ruhigen Zeitraum erinnern.</span>
+                    </div>
+                    <label class="toggle">
+                      <input
+                        type="checkbox"
+                        checked={reminderWindowEnabled[rule.id] ?? false}
+                        on:change={(e) => toggleReminderWindow(rule, e.currentTarget.checked)}
+                      />
+                    </label>
+                  </div>
+
+                  {#if reminderWindowEnabled[rule.id]}
                     <div class="field">
-                      <label for={`rule-send-start-${rule.id}`}>Ab wann darf die Erinnerung verschickt werden?</label>
+                      <label for={`rule-send-start-${rule.id}`}>Startzeit der Erinnerung</label>
                       <input id={`rule-send-start-${rule.id}`} class="input" type="time" bind:value={rule.send_start} />
                     </div>
 
                     <div class="field">
-                      <label for={`rule-send-end-${rule.id}`}>Bis wann darf sie verschickt werden?</label>
+                      <label for={`rule-send-end-${rule.id}`}>Endzeit der Erinnerung</label>
                       <input id={`rule-send-end-${rule.id}`} class="input" type="time" bind:value={rule.send_end} />
                     </div>
+                  {/if}
+                </div>
 
+                <div slot="footer" class="actions reminder-footer">
+                  <button class="btn btn-outline" type="button" on:click={closeReminderPanel}>Abbrechen</button>
+                  <button class="btn btn-primary" type="button" on:click={() => updateRule(rule, true)}>Speichern</button>
+                </div>
+              </SlideOverDetail>
+
+              <SlideOverDetail
+                open={activeReminderId === rule.id && activeReminderPanel === "repeat"}
+                title="Wie soll erinnert werden?"
+                subtitle="Wiederholungen bleiben verborgen, bis du sie wirklich brauchst."
+                onClose={closeReminderPanel}
+              >
+                <div class="detail-group">
+                  <div class="field">
+                    <p class="fieldset-label">Wiederholung</p>
+                    <SegmentedControl bind:value={rule.schedule_every} options={repeatOptions} ariaLabel="Wiederholung" />
+                  </div>
+                </div>
+
+                {#if rule.schedule_every}
+                  <div class="detail-group">
                     <div class="field">
-                      <label for={`rule-cooldown-${rule.id}`}>Wie oft soll erinnert werden?</label>
-                      <input
-                        id={`rule-cooldown-${rule.id}`}
-                        class="input"
-                        type="number"
-                        min="0"
-                        bind:value={rule.cooldown_hours}
-                      />
-                      <p class="hint">Gib an, wie viele Stunden zwischen zwei Erinnerungen mindestens liegen sollen.</p>
+                      <label for={`rule-start-date-${rule.id}`}>Ab wann soll die Regel gelten?</label>
+                      <input id={`rule-start-date-${rule.id}`} class="input" type="date" bind:value={rule.schedule_start_date} />
                     </div>
 
                     <div class="field">
-                      <label for={`rule-start-date-${rule.id}`}>Ab welchem Datum soll die Regel gelten?</label>
-                      <input
-                        id={`rule-start-date-${rule.id}`}
-                        class="input"
-                        type="date"
-                        bind:value={rule.schedule_start_date}
-                      />
+                      <label for={`rule-schedule-time-${rule.id}`}>Wann soll gepruft werden?</label>
+                      <input id={`rule-schedule-time-${rule.id}`} class="input" type="time" bind:value={rule.schedule_time} />
                     </div>
 
                     <div class="field">
-                      <p class="fieldset-label">Wie regelmassig soll gepruft werden?</p>
-                      <SegmentedControl bind:value={rule.schedule_every} options={scheduleOptions} ariaLabel="Rhythmus" />
-                    </div>
-
-                    <div class="field">
-                      <label for={`rule-schedule-time-${rule.id}`}>Zu welcher Uhrzeit soll gepruft werden?</label>
-                      <input
-                        id={`rule-schedule-time-${rule.id}`}
-                        class="input"
-                        type="time"
-                        bind:value={rule.schedule_time}
-                      />
+                      <label for={`rule-cooldown-${rule.id}`}>Erinnerungsintervall</label>
+                      <input id={`rule-cooldown-${rule.id}`} class="input" type="number" min="0" bind:value={rule.cooldown_hours} />
+                      <p class="hint">So viele Stunden sollen mindestens zwischen zwei Erinnerungen liegen.</p>
                     </div>
                   </div>
-                </Card>
+                {/if}
 
-                <Card title="Zielgruppe" description="Bestimme, wen die Erinnerung erreicht. Du kannst alle oder nur einzelne Personen ansprechen.">
-                  <div class="form-grid">
-                    <div class="field">
-                      <label for={`rule-role-${rule.id}`}>Wen mochtest du erinnern?</label>
-                      <select id={`rule-role-${rule.id}`} class="select" bind:value={rule.target_role}>
-                        {#each reminderAudienceOptions as option}
-                          <option value={option.value}>{option.label}</option>
-                        {/each}
-                      </select>
-                      <p class="hint">Aktuell ausgewahlt: {reminderRoleLabel(rule.target_role)}</p>
-                    </div>
+                <div slot="footer" class="actions reminder-footer">
+                  <button class="btn btn-outline" type="button" on:click={closeReminderPanel}>Abbrechen</button>
+                  <button class="btn btn-primary" type="button" on:click={() => updateRule(rule, true)}>Speichern</button>
+                </div>
+              </SlideOverDetail>
 
-                    <div class="field">
-                      <label for={`rule-user-${rule.id}`}>Nur eine bestimmte Person erinnern?</label>
-                      <select id={`rule-user-${rule.id}`} class="select" bind:value={rule.target_user_id}>
-                        <option value="">Nein, an alle passenden Personen senden</option>
-                        {#each users as user}
-                          <option value={user.id}>{user.email}</option>
-                        {/each}
-                      </select>
-                    </div>
+              <SlideOverDetail
+                open={activeReminderId === rule.id && activeReminderPanel === "audience"}
+                title="Wen mochtest du erinnern?"
+                subtitle="Halte die Zielgruppe breit oder richte die Erinnerung an eine einzelne Person."
+                onClose={closeReminderPanel}
+              >
+                <div class="detail-group">
+                  <div class="field">
+                    <label for={`rule-role-${rule.id}`}>Zielgruppe</label>
+                    <select id={`rule-role-${rule.id}`} class="select" bind:value={rule.target_role}>
+                      {#each reminderAudienceOptions as option}
+                        <option value={option.value}>{option.label}</option>
+                      {/each}
+                    </select>
                   </div>
-                </Card>
 
-                <Card title="Nachricht" description="Schreibe den Ton so, wie du ihn selbst gern erhalten wurdest: klar, freundlich und direkt.">
-                  <div class="form-grid">
-                    <div class="field">
-                      <label for={`rule-title-${rule.id}`}>Wie soll die Erinnerung heissen?</label>
-                      <input
-                        id={`rule-title-${rule.id}`}
-                        class="input"
-                        bind:value={rule.title_template}
-                        placeholder="z. B. Erinnerung an den nachsten Termin"
-                      />
-                    </div>
-
-                    <div class="field">
-                      <label for={`rule-body-${rule.id}`}>Was mochtest du den Teilnehmenden sagen?</label>
-                      <textarea
-                        id={`rule-body-${rule.id}`}
-                        class="textarea"
-                        rows="4"
-                        bind:value={rule.body_template}
-                        placeholder="z. B. Denk bitte daran, uns kurz Bescheid zu geben, ob du dabei bist."
-                      ></textarea>
-                      <p class="hint">Du kannst Platzhalter wie {`{event.title}`} oder {`{event.start}`} verwenden.</p>
-                    </div>
+                  <div class="field">
+                    <label for={`rule-user-${rule.id}`}>Bestimmte Person</label>
+                    <select id={`rule-user-${rule.id}`} class="select" bind:value={rule.target_user_id}>
+                      <option value="">Nein, an alle passenden Personen senden</option>
+                      {#each users as user}
+                        <option value={user.id}>{user.email}</option>
+                      {/each}
+                    </select>
                   </div>
-                </Card>
+                </div>
+
+                <div slot="footer" class="actions reminder-footer">
+                  <button class="btn btn-outline" type="button" on:click={closeReminderPanel}>Abbrechen</button>
+                  <button class="btn btn-primary" type="button" on:click={() => updateRule(rule, true)}>Speichern</button>
+                </div>
+              </SlideOverDetail>
+
+              <SlideOverDetail
+                open={activeReminderId === rule.id && activeReminderPanel === "message"}
+                title="Wie soll die Nachricht wirken?"
+                subtitle="Titel und Text bleiben kurz, freundlich und gut verstandlich."
+                onClose={closeReminderPanel}
+              >
+                <div class="detail-group">
+                  <div class="field">
+                    <label for={`rule-title-${rule.id}`}>Titel</label>
+                    <input
+                      id={`rule-title-${rule.id}`}
+                      class="input"
+                      bind:value={rule.title_template}
+                      placeholder="Erinnerung an den nachsten Termin"
+                    />
+                  </div>
+
+                  <div class="field">
+                    <label for={`rule-body-${rule.id}`}>Nachricht</label>
+                    <textarea
+                      id={`rule-body-${rule.id}`}
+                      class="textarea"
+                      rows="5"
+                      bind:value={rule.body_template}
+                      placeholder="Denk bitte kurz an deine Ruckmeldung fur {event.title}."
+                    ></textarea>
+                    <p class="hint">Platzhalter wie {`{event.title}`} und {`{event.start}`} kannst du weiterhin verwenden.</p>
+                  </div>
+                </div>
+
+                <div slot="footer" class="actions reminder-footer">
+                  <button class="btn btn-outline" type="button" on:click={closeReminderPanel}>Abbrechen</button>
+                  <button class="btn btn-primary" type="button" on:click={() => updateRule(rule, true)}>Speichern</button>
+                </div>
+              </SlideOverDetail>
+            </section>
+          {:else}
+            <Card title={ruleLabel(rule.rule_type)} interactive={true}>
+              <div slot="actions" class="actions">
+                <span class="badge badge-secondary">{rule.rule_type}</span>
+                <label class="toggle">
+                  <input type="checkbox" bind:checked={rule.enabled} />
+                </label>
+                <button class="btn btn-outline" type="button" on:click={() => updateRule(rule)}>Speichern</button>
+                <button class="btn btn-danger" type="button" on:click={() => deleteRule(rule.id)}>Loschen</button>
               </div>
-            {:else}
+
               <div class="split-grid">
-                <Card title="Zeitraum" description="Wann die Erinnerung greift und in welchem Kontext sie gilt.">
+                <Card title="Zeitraum">
                   <div class="form-grid">
                     <div class="field">
                       <label for={`rule-type-${rule.id}`}>Regeltyp</label>
@@ -461,12 +674,12 @@
                     </div>
 
                     <div class="field">
-                      <label for={`rule-send-start-${rule.id}`}>Start der Erinnerung</label>
+                      <label for={`rule-send-start-${rule.id}`}>Startzeit der Erinnerung</label>
                       <input id={`rule-send-start-${rule.id}`} class="input" type="time" bind:value={rule.send_start} />
                     </div>
 
                     <div class="field">
-                      <label for={`rule-send-end-${rule.id}`}>Ende der Erinnerung</label>
+                      <label for={`rule-send-end-${rule.id}`}>Endzeit der Erinnerung</label>
                       <input id={`rule-send-end-${rule.id}`} class="input" type="time" bind:value={rule.send_end} />
                     </div>
 
@@ -477,42 +690,26 @@
                   </div>
                 </Card>
 
-                <Card title="Wiederholung" description="Rhythmus, Startdatum und Erinnerungsintervall.">
+                <Card title="Wiederholung">
                   <div class="form-grid">
                     <div class="field">
                       <label for={`rule-start-date-${rule.id}`}>Startdatum</label>
-                      <input
-                        id={`rule-start-date-${rule.id}`}
-                        class="input"
-                        type="date"
-                        bind:value={rule.schedule_start_date}
-                      />
+                      <input id={`rule-start-date-${rule.id}`} class="input" type="date" bind:value={rule.schedule_start_date} />
                     </div>
 
                     <div class="field">
                       <p class="fieldset-label">Rhythmus</p>
-                      <SegmentedControl bind:value={rule.schedule_every} options={scheduleOptions} ariaLabel="Rhythmus" />
+                      <SegmentedControl bind:value={rule.schedule_every} options={repeatOptions} ariaLabel="Rhythmus" />
                     </div>
 
                     <div class="field">
                       <label for={`rule-schedule-time-${rule.id}`}>Uhrzeit</label>
-                      <input
-                        id={`rule-schedule-time-${rule.id}`}
-                        class="input"
-                        type="time"
-                        bind:value={rule.schedule_time}
-                      />
+                      <input id={`rule-schedule-time-${rule.id}`} class="input" type="time" bind:value={rule.schedule_time} />
                     </div>
 
                     <div class="field">
-                      <label for={`rule-cooldown-${rule.id}`}>Erinnerungsintervall (Stunden)</label>
-                      <input
-                        id={`rule-cooldown-${rule.id}`}
-                        class="input"
-                        type="number"
-                        min="0"
-                        bind:value={rule.cooldown_hours}
-                      />
+                      <label for={`rule-cooldown-${rule.id}`}>Erinnerungsintervall</label>
+                      <input id={`rule-cooldown-${rule.id}`} class="input" type="number" min="0" bind:value={rule.cooldown_hours} />
                     </div>
 
                     {#if !isScheduleRule(rule.rule_type)}
@@ -523,7 +720,7 @@
               </div>
 
               <div class="split-grid">
-                <Card title="Teilnehmer" description="Fur wen die Nachricht gedacht ist.">
+                <Card title="Teilnehmer">
                   <div class="form-grid">
                     <div class="field">
                       <p class="fieldset-label">Rolle</p>
@@ -542,7 +739,7 @@
 
                     {#if rule.rule_type === "availability-missing"}
                       <div class="field">
-                        <label for={`rule-min-response-${rule.id}`}>Mindest-Zusagen (%)</label>
+                        <label for={`rule-min-response-${rule.id}`}>Mindest-Zusagen</label>
                         <input
                           id={`rule-min-response-${rule.id}`}
                           class="input"
@@ -556,16 +753,11 @@
                   </div>
                 </Card>
 
-                <Card title="Nachricht" description="Titel und Text der Benachrichtigung.">
+                <Card title="Nachricht">
                   <div class="form-grid">
                     <div class="field">
                       <label for={`rule-title-${rule.id}`}>Titel</label>
-                      <input
-                        id={`rule-title-${rule.id}`}
-                        class="input"
-                        bind:value={rule.title_template}
-                        placeholder="z. B. Termin-Erinnerung"
-                      />
+                      <input id={`rule-title-${rule.id}`} class="input" bind:value={rule.title_template} />
                     </div>
 
                     <div class="field">
@@ -573,15 +765,10 @@
                       <textarea id={`rule-body-${rule.id}`} class="textarea" rows="4" bind:value={rule.body_template}></textarea>
                     </div>
                   </div>
-
-                  <div class="rule-template-list text-muted">
-                    <span>Variablen: {`{event.title}`}, {`{event.start}`}, {`{event.end}`}, {`{event.type}`}, {`{event.location}`}</span>
-                    <span>{`{user.name}`}, {`{user.role}`}, {`{item.name}`}, {`{item.quantity}`}, {`{item.min_quantity}`}</span>
-                  </div>
                 </Card>
               </div>
-            {/if}
-          </Card>
+            </Card>
+          {/if}
         {/each}
       </div>
     </Card>
@@ -589,13 +776,113 @@
 </div>
 
 <style>
-  .reminder-form {
+  .reminder-settings-page {
+    width: 100%;
+    max-width: 760px;
+    margin: 0 auto;
+    display: grid;
+    gap: 1.4rem;
+  }
+
+  .reminder-hero {
+    display: grid;
+    gap: 1rem;
+    padding-top: 0.5rem;
+  }
+
+  .reminder-hero__copy {
+    display: grid;
+    gap: 0.45rem;
+  }
+
+  .reminder-hero__kicker {
+    color: #007aff;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .reminder-hero__title {
+    color: #1d1d1f;
+    font-size: clamp(1.8rem, 4vw, 2.35rem);
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+  }
+
+  .reminder-hero__text {
+    color: #6e6e73;
+    line-height: 1.5;
+    max-width: 42rem;
+  }
+
+  .reminder-settings-card {
+    background: #ffffff;
+    border-radius: 18px;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.78),
+      0 14px 34px rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+  }
+
+  .reminder-toggle-row {
+    padding: 1rem 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 1px solid rgba(29, 29, 31, 0.08);
+  }
+
+  .detail-group {
+    display: grid;
+    gap: 0.9rem;
+    padding: 1rem;
+    border-radius: 18px;
+    background: #ffffff;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.78),
+      0 10px 28px rgba(15, 23, 42, 0.05);
+  }
+
+  .detail-inline-toggle {
+    padding: 0.2rem 0;
+  }
+
+  .reminder-footer {
+    justify-content: flex-end;
+  }
+
+  .approval-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 1rem;
   }
 
-  .reminder-toggle {
-    padding: 0.55rem 0.75rem;
-    border-radius: 14px;
-    background: rgba(29, 29, 31, 0.04);
+  .approval-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .approval-actions .select {
+    min-width: 11rem;
+  }
+
+  @media (max-width: 720px) {
+    .reminder-toggle-row {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .reminder-footer {
+      justify-content: stretch;
+    }
+
+    .approval-row,
+    .approval-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
   }
 </style>

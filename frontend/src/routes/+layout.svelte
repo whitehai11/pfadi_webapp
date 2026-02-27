@@ -1,6 +1,8 @@
 <script lang="ts">
   import { page } from "$app/stores";
   import Navigation from "$lib/components/Navigation.svelte";
+  import { apiFetch } from "$lib/api";
+  import { appSettings, refreshAppSettings, resetAppSettings } from "$lib/app-settings";
   import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
   import { registerPush } from "$lib/push";
   import "$lib/styles/app.css";
@@ -10,9 +12,10 @@
   let navOpen = false;
 
   const navItems = [
-    { href: "/", label: "Übersicht", icon: "home" as const },
+    { href: "/", label: "Ubersicht", icon: "home" as const },
     { href: "/calendar", label: "Kalender", icon: "calendar" as const },
     { href: "/inventory", label: "Material", icon: "inventory" as const },
+    { href: "/chat", label: "Chat", icon: "chat" as const },
     { href: "/nfc", label: "NFC", icon: "nfc" as const },
     { href: "/packlists", label: "Packlisten", icon: "packlist" as const },
     { href: "/settings", label: "Einstellungen", icon: "settings" as const }
@@ -45,6 +48,15 @@
 
   onMount(async () => {
     restoreSession();
+    if (get(session)) {
+      try {
+        await apiFetch("/api/auth/me");
+        await refreshAppSettings();
+      } catch {
+        clearToken();
+        resetAppSettings();
+      }
+    }
     if ("serviceWorker" in navigator) {
       try {
         await navigator.serviceWorker.register("/service-worker.js");
@@ -57,7 +69,10 @@
 
   $: if (!get(session)) {
     navOpen = false;
+    resetAppSettings();
   }
+
+  $: visibleNavItems = navItems.filter((item) => item.href !== "/chat" || $appSettings.chatEnabled);
 </script>
 
 <svelte:head>
@@ -68,7 +83,7 @@
   {#if $session}
     <Navigation
       items={[
-        ...navItems,
+        ...visibleNavItems,
         ...($session.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin" as const }] : [])
       ]}
       currentPath={$page.url.pathname}

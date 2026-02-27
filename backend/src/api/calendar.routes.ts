@@ -1,24 +1,34 @@
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { createEvent, deleteEvent, getEvent, listEvents, updateEvent } from "../services/calendar.service.js";
 import { generateIcs } from "../services/ics.service.js";
 import { requireAdmin, requireAuth } from "../utils/guards.js";
 import { sendRulesForEvent } from "../services/push-rules.service.js";
 import { listAvailability, upsertAvailability } from "../services/availability.service.js";
-import { z } from "zod";
+import { parseOrReply, textField, uuidParamSchema } from "../utils/validation.js";
 
-const eventSchema = z.object({
-  title: z.string().min(1),
-  type: z.enum(["Gruppenstunde", "Lager", "Aktion", "Sonstiges"]),
-  start_at: z.string().datetime(),
-  end_at: z.string().datetime(),
-  location: z.string().min(1),
-  description: z.string().default(""),
-  packlist_required: z.boolean().default(false)
-});
+const idParamsSchema = z.object({ id: uuidParamSchema }).strict();
 
-const availabilitySchema = z.object({
-  status: z.enum(["yes", "maybe", "no"])
-});
+const eventSchema = z
+  .object({
+    title: textField(140),
+    type: z.enum(["Gruppenstunde", "Lager", "Aktion", "Sonstiges"]),
+    start_at: z.string().datetime(),
+    end_at: z.string().datetime(),
+    location: textField(140),
+    description: z.string().trim().max(4000).default(""),
+    packlist_required: z.boolean().default(false)
+  })
+  .strict()
+  .refine((value) => new Date(value.end_at).getTime() >= new Date(value.start_at).getTime(), {
+    message: "invalid date range"
+  });
+
+const availabilitySchema = z
+  .object({
+    status: z.enum(["yes", "maybe", "no"])
+  })
+  .strict();
 
 export const calendarRoutes = async (app: FastifyInstance) => {
   app.get("/calendar", { preHandler: requireAuth }, async () => {
@@ -26,22 +36,27 @@ export const calendarRoutes = async (app: FastifyInstance) => {
   });
 
   app.post("/calendar", { preHandler: requireAdmin }, async (request, reply) => {
-    const parsed = eventSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "Invalid input" });
-    }
-    const event = createEvent(parsed.data);
+    const parsed = parseOrReply(reply, eventSchema, request.body);
+    if (!parsed) return;
+    const event = createEvent({
+      ...parsed,
+      description: parsed.description ?? "",
+      packlist_required: parsed.packlist_required ?? false
+    });
     generateIcs();
     await sendRulesForEvent("event-created", event);
     return reply.code(201).send(event);
   });
 
   app.put("/calendar/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const parsed = eventSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "Invalid input" });
-    }
-    const event = updateEvent((request.params as { id: string }).id, parsed.data);
+    const params = parseOrReply(reply, idParamsSchema, request.params);
+    const parsed = parseOrReply(reply, eventSchema, request.body);
+    if (!params || !parsed) return;
+    const event = updateEvent(params.id, {
+      ...parsed,
+      description: parsed.description ?? "",
+      packlist_required: parsed.packlist_required ?? false
+    });
     if (!event) {
       return reply.code(404).send({ error: "Not found" });
     }
@@ -51,7 +66,9 @@ export const calendarRoutes = async (app: FastifyInstance) => {
   });
 
   app.delete("/calendar/:id", { preHandler: requireAdmin }, async (request, reply) => {
-    const event = getEvent((request.params as { id: string }).id);
+    const params = parseOrReply(reply, idParamsSchema, request.params);
+    if (!params) return;
+    const event = getEvent(params.id);
     if (!event) {
       return reply.code(404).send({ error: "Not found" });
     }
@@ -65,8 +82,9 @@ export const calendarRoutes = async (app: FastifyInstance) => {
   });
 
   app.get("/calendar/:id/availability", { preHandler: requireAuth }, async (request, reply) => {
-    const eventId = (request.params as { id: string }).id;
-    const entries = listAvailability(eventId);
+    const params = parseOrReply(reply, idParamsSchema, request.params);
+    if (!params) return;
+    const entries = listAvailability(params.id);
     const counts = entries.reduce(
       (acc, entry) => {
         acc[entry.status] += 1;
@@ -78,13 +96,11 @@ export const calendarRoutes = async (app: FastifyInstance) => {
   });
 
   app.post("/calendar/:id/availability", { preHandler: requireAuth }, async (request, reply) => {
-    const parsed = availabilitySchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: "Invalid input" });
-    }
+    const params = parseOrReply(reply, idParamsSchema, request.params);
+    const parsed = parseOrReply(reply, availabilitySchema, request.body);
+    if (!params || !parsed) return;
     const user = request.user as { id: string };
-    const eventId = (request.params as { id: string }).id;
-    const id = upsertAvailability(eventId, user.id, parsed.data.status);
+    const id = upsertAvailability(params.id, user.id, parsed.status);
     return reply.send({ id });
   });
 };

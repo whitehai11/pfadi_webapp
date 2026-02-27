@@ -1,20 +1,27 @@
 import { s as store_get, a as attr, u as unsubscribe_stores, e as ensure_array_like } from "../../chunks/index2.js";
 import { C as Card } from "../../chunks/Card.js";
-import { I as Icon } from "../../chunks/Icon.js";
+import { L as Logo } from "../../chunks/Logo.js";
 import { a as authHeader, s as session } from "../../chunks/auth.js";
 import { e as escape_html } from "../../chunks/escaping.js";
 const baseUrl = "";
 const apiFetch = async (path, options = {}) => {
   const hasBody = options.body !== void 0 && options.body !== null;
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const headers = {
     ...authHeader(),
-    ...hasBody ? { "Content-Type": "application/json" } : {},
+    ...hasBody && !isFormData ? { "Content-Type": "application/json" } : {},
     ...options.headers || {}
   };
   const response = await fetch(`${baseUrl}${path}`, { ...options, headers });
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || "Request failed");
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      parsed = null;
+    }
+    throw new Error(parsed?.error || parsed?.message || text || "Request failed");
   }
   if (response.status === 204) return null;
   return response.json();
@@ -63,19 +70,25 @@ function _page($$renderer, $$props) {
     }
     if (!store_get($$store_subs ??= {}, "$session", session)) {
       $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<section class="auth-screen"><div class="auth-card"><div class="auth-brand"><div class="logo-badge">`);
-      Icon($$renderer2, { name: "sparkles", size: 26 });
-      $$renderer2.push(`<!----></div> <div class="page-intro"><p class="page-kicker">Pfadfinder Organisation</p> <h1 class="page-title">Ruhig organisiert. Klar im Alltag.</h1> <p class="page-description">Die Webapp bündelt Termine, Material und Rückmeldungen in einer klaren Oberfläche.</p></div></div> <form class="auth-form"><div class="field"><label for="username">Benutzername</label> <input id="username" class="input" type="text"${attr("value", username)} placeholder="z. B. max"/></div> <div class="field"><label for="password">Passwort</label> <input id="password" class="input" type="password"${attr("value", password)} placeholder="Mindestens 8 Zeichen"/></div> <div class="actions"><button class="btn btn-primary" type="submit">Einloggen</button> <button class="btn btn-outline" type="button">Registrieren</button></div> `);
+      $$renderer2.push(`<section class="auth-screen auth-screen--minimal"><div class="auth-card auth-card--minimal"><div class="auth-logo">`);
+      Logo($$renderer2, { size: 30 });
+      $$renderer2.push(`<!----></div> `);
       {
         $$renderer2.push("<!--[!-->");
+        $$renderer2.push(`<form class="auth-form"><div class="field"><label for="username">Benutzername</label> <input id="username" class="input" type="text"${attr("value", username)} autocomplete="username"/></div> <div class="field"><label for="password">Passwort</label> <input id="password" class="input" type="password"${attr("value", password)} autocomplete="current-password"/></div> <button class="btn btn-primary" type="submit">${escape_html("Einloggen")}</button> <button class="auth-link" type="button">${escape_html(
+          "Kein Zugang? Account beantragen"
+        )}</button> `);
+        {
+          $$renderer2.push("<!--[!-->");
+        }
+        $$renderer2.push(`<!--]--></form>`);
       }
-      $$renderer2.push(`<!--]--></form></div></section>`);
+      $$renderer2.push(`<!--]--></div></section>`);
     } else {
       $$renderer2.push("<!--[!-->");
       $$renderer2.push(`<div class="page-stack"><section class="page-intro"><p class="page-kicker">Übersicht</p> <h1 class="page-title">Alles Wichtige auf einen Blick.</h1> <p class="page-description">Der Startbereich bündelt die nächsten Termine, Materialthemen und offene Rückmeldungen.</p></section> <section class="dashboard-grid">`);
       Card($$renderer2, {
         title: "Nächste Termine",
-        description: "Die nächsten gemeinsamen Einsätze und Treffen.",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
@@ -110,7 +123,6 @@ function _page($$renderer, $$props) {
       $$renderer2.push(`<!----> `);
       Card($$renderer2, {
         title: "Material Status",
-        description: "Artikel unter Mindestmenge werden hier priorisiert.",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
@@ -145,7 +157,6 @@ function _page($$renderer, $$props) {
       $$renderer2.push(`<!----> `);
       Card($$renderer2, {
         title: "Offene Rückmeldungen",
-        description: "Termine, bei denen deine Antwort noch fehlt.",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
