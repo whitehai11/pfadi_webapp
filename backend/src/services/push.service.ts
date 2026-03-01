@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 import { settings } from "../config/settings.js";
 import { logger } from "../utils/logger.js";
+import { createNotification } from "./notification.service.js";
 
 export type PushSubscriptionInput = {
   endpoint: string;
@@ -50,6 +51,21 @@ export const deleteSubscription = (userId: string, endpoint: string) => {
 };
 
 export const sendToUser = async (userId: string, payload: object) => {
+  const typedPayload = payload as { title?: unknown; body?: unknown; type?: unknown };
+  const notificationTitle = String(typedPayload?.title ?? "Benachrichtigung").trim() || "Benachrichtigung";
+  const notificationBody = String(typedPayload?.body ?? "").trim();
+  createNotification({
+    userId,
+    type: "push",
+    title: notificationTitle,
+    message: notificationBody || "Neue Benachrichtigung",
+    metadata: {
+      source: "push",
+      push_type: String(typedPayload?.type ?? "generic")
+    },
+    emitRealtime: true
+  });
+
   if (!ensureVapid()) return;
   const subscriptions = db
     .prepare("SELECT * FROM push_subscriptions WHERE user_id = ?")

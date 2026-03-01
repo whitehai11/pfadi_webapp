@@ -1,5 +1,6 @@
 // engineered by Maro Elias Goth
 import { settings } from "../config/settings.js";
+import { publishAdminLog } from "../services/admin-stream.service.js";
 
 type LogLevel = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 
@@ -22,6 +23,12 @@ const writeLog = (level: LogLevel, message: string, context?: Record<string, unk
     msg: message,
     ...(context ?? {})
   };
+  publishAdminLog({
+    ts: String(entry.ts),
+    level,
+    msg: message,
+    context
+  });
   const line = `${JSON.stringify(entry)}\n`;
   if (level === "error" || level === "fatal") {
     process.stderr.write(line);

@@ -1,697 +1,1290 @@
-import { b as bind_props, a as attr, c as attr_class, e as ensure_array_like, s as store_get, d as clsx, u as unsubscribe_stores } from "../../../chunks/index2.js";
-import { g as get } from "../../../chunks/index.js";
-import { A as Avatar } from "../../../chunks/Avatar.js";
-import { S as SegmentedControl } from "../../../chunks/SegmentedControl.js";
-import { Z as fallback } from "../../../chunks/utils2.js";
-import { e as escape_html } from "../../../chunks/escaping.js";
-import { a as apiFetch } from "../../../chunks/api.js";
+import { a as attr, b as bind_props, e as ensure_array_like, c as attr_class, s as store_get, u as unsubscribe_stores } from "../../../chunks/index2.js";
+import { o as onDestroy } from "../../../chunks/index-server.js";
+import { g as goto } from "../../../chunks/client.js";
+import { p as page } from "../../../chunks/stores.js";
+import { C as Card } from "../../../chunks/Card.js";
 import { a as session } from "../../../chunks/auth.js";
-import { a as activeOverlayId } from "../../../chunks/overlay.js";
 import { p as pushToast } from "../../../chunks/toast.js";
-function PushRuleCard($$renderer, $$props) {
+import "clsx";
+import { e as escape_html } from "../../../chunks/escaping.js";
+import { Z as fallback } from "../../../chunks/utils2.js";
+import { a as apiFetch } from "../../../chunks/api.js";
+import { w as writable } from "../../../chunks/index.js";
+function AdminHeader($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
-    let rule = $$props["rule"];
-    let users = fallback($$props["users"], () => [], true);
-    let onSave = fallback($$props["onSave"], void 0);
-    let onDelete = fallback($$props["onDelete"], void 0);
-    let onSend = fallback($$props["onSend"], void 0);
-    let fieldErrors = {};
-    let deleteLoading = false;
-    const targetTypeOptions = [
-      { value: "all", label: "Alle" },
-      { value: "role", label: "Rolle" },
-      { value: "user", label: "Person" }
-    ];
-    const intervalUnitOptions = [
-      { value: "hours", label: "Stunden" },
-      { value: "days", label: "Tage" },
-      { value: "weeks", label: "Wochen" }
-    ];
-    const roleOptions = [
-      { value: "user", label: "Nutzer" },
-      { value: "materialwart", label: "Materialwart" },
-      { value: "admin", label: "Admin" }
-    ];
-    const formatLastExecuted = (value) => {
-      if (!value) return "Noch nie";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return "Unbekannt";
-      return date.toLocaleString("de-DE");
+    let lastUpdatedAt = fallback($$props["lastUpdatedAt"], "");
+    let loading = fallback($$props["loading"], false);
+    let onRefresh = fallback($$props["onRefresh"], null);
+    $$renderer2.push(`<div class="dashboard-head svelte-7s3hde"><p class="text-muted">Letzte Aktualisierung: ${escape_html(lastUpdatedAt || "-")}</p> <button class="btn btn-outline" type="button"${attr("disabled", loading, true)}>${escape_html(loading ? "Lade..." : "Aktualisieren")}</button></div>`);
+    bind_props($$props, { lastUpdatedAt, loading, onRefresh });
+  });
+}
+function AdminStats($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let stats = fallback($$props["stats"], null);
+    let loading = fallback($$props["loading"], false);
+    const formatNumber = (value) => new Intl.NumberFormat("de-DE").format(Number.isFinite(Number(value)) ? Number(value) : 0);
+    const formatUptime = (seconds) => {
+      const safe = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 0;
+      const days = Math.floor(safe / 86400);
+      const hours = Math.floor(safe % 86400 / 3600);
+      const minutes = Math.floor(safe % 3600 / 60);
+      if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+      if (hours > 0) return `${hours}h ${minutes}m`;
+      return `${minutes}m`;
     };
-    let $$settled = true;
-    let $$inner_renderer;
-    function $$render_inner($$renderer3) {
-      $$renderer3.push(`<article class="push-rule-card svelte-fbz8p4"><div class="form-grid"><div class="toggle-row push-rule-toggle svelte-fbz8p4"><div class="list-meta"><strong>Aktiv</strong></div> <label class="toggle"><input type="checkbox"${attr("checked", rule.is_active, true)}/></label></div> <div class="field"><p class="fieldset-label">Regeltyp</p> `);
-      SegmentedControl($$renderer3, {
-        options: [
-          { value: "instant", label: "Sofort" },
-          { value: "recurring", label: "Wiederkehrend" }
-        ],
-        ariaLabel: "Regeltyp",
-        get value() {
-          return rule.notification_type;
-        },
-        set value($$value) {
-          rule.notification_type = $$value;
-          $$settled = false;
-        }
-      });
-      $$renderer3.push(`<!----></div> <div class="field"><label${attr("for", `push-title-${rule.id}`)}>Titel</label> <input${attr("id", `push-title-${rule.id}`)}${attr_class("input", void 0, { "input-invalid": Boolean(fieldErrors.title) })}${attr("value", rule.title)} maxlength="160" required/> `);
-      if (fieldErrors.title) {
-        $$renderer3.push("<!--[-->");
-        $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.title)}</p>`);
-      } else {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--></div> <div class="field"><label${attr("for", `push-message-${rule.id}`)}>Nachricht</label> <textarea${attr("id", `push-message-${rule.id}`)}${attr_class("textarea", void 0, { "input-invalid": Boolean(fieldErrors.message) })} rows="4" maxlength="1200" required>`);
-      const $$body = escape_html(rule.message);
-      if ($$body) {
-        $$renderer3.push(`${$$body}`);
-      }
-      $$renderer3.push(`</textarea> `);
-      if (fieldErrors.message) {
-        $$renderer3.push("<!--[-->");
-        $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.message)}</p>`);
-      } else {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--></div> <div class="field"><p class="fieldset-label">Empfanger-Auswahl</p> `);
-      SegmentedControl($$renderer3, {
-        options: targetTypeOptions,
-        ariaLabel: "Empfangerauswahl",
-        get value() {
-          return rule.target_type;
-        },
-        set value($$value) {
-          rule.target_type = $$value;
-          $$settled = false;
-        }
-      });
-      $$renderer3.push(`<!----></div> `);
-      if (rule.target_type === "role") {
-        $$renderer3.push("<!--[-->");
-        $$renderer3.push(`<div class="field"><label${attr("for", `push-role-${rule.id}`)}>Rolle</label> `);
-        $$renderer3.select(
-          {
-            id: `push-role-${rule.id}`,
-            class: "select",
-            value: rule.target_id
+    const bytesToMb = (bytes) => {
+      const safe = Number.isFinite(Number(bytes)) ? Math.max(0, Number(bytes)) : 0;
+      return `${(safe / (1024 * 1024)).toFixed(1)} MB`;
+    };
+    $$renderer2.push(`<section class="section-block svelte-1rofc7m"><h2 class="section-title svelte-1rofc7m">System Overview</h2> `);
+    if (loading) {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<div class="stats-grid svelte-1rofc7m"><!--[-->`);
+      const each_array = ensure_array_like(Array(8));
+      for (let i = 0, $$length = each_array.length; i < $$length; i++) {
+        each_array[i];
+        Card($$renderer2, {
+          title: "Lade...",
+          children: ($$renderer3) => {
+            $$renderer3.push(`<div class="skeleton-value svelte-1rofc7m"></div> <div class="skeleton-sub svelte-1rofc7m"></div>`);
           },
-          ($$renderer4) => {
-            $$renderer4.push(`<!--[-->`);
-            const each_array = ensure_array_like(roleOptions);
-            for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-              let option = each_array[$$index];
-              $$renderer4.option({ value: option.value }, ($$renderer5) => {
-                $$renderer5.push(`${escape_html(option.label)}`);
-              });
-            }
-            $$renderer4.push(`<!--]-->`);
-          },
-          void 0,
-          { "input-invalid": Boolean(fieldErrors.target_id) }
-        );
-        $$renderer3.push(` `);
-        if (fieldErrors.target_id) {
+          $$slots: { default: true }
+        });
+      }
+      $$renderer2.push(`<!--]--></div>`);
+    } else {
+      $$renderer2.push("<!--[!-->");
+      $$renderer2.push(`<div class="stats-grid svelte-1rofc7m">`);
+      Card($$renderer2, {
+        title: "Total Users",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatNumber(stats?.totalUsers))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Active Sessions",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatNumber(stats?.activeSessions))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Events",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatNumber(stats?.totalEvents))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Chat Messages Today",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatNumber(stats?.messagesToday))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Server Uptime",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatUptime(stats?.serverUptime))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Memory Usage",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(bytesToMb(stats?.memoryUsage?.heapUsed))}</p> <p class="text-muted svelte-1rofc7m">Heap Used</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "App Version",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(stats?.appVersion || "dev")}</p> <p class="text-muted svelte-1rofc7m">Commit: ${escape_html(stats?.gitCommit || "dev")}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----> `);
+      Card($$renderer2, {
+        title: "Total Chat Messages",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="stat-value svelte-1rofc7m">${escape_html(formatNumber(stats?.totalChatMessages))}</p>`);
+        },
+        $$slots: { default: true }
+      });
+      $$renderer2.push(`<!----></div>`);
+    }
+    $$renderer2.push(`<!--]--></section>`);
+    bind_props($$props, { stats, loading });
+  });
+}
+function AdminUserManagement($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const roleOptions = [
+      { value: "alle", label: "Alle Rollen" },
+      { value: "admin", label: "Admin" },
+      { value: "materialwart", label: "Materialwart" },
+      { value: "user", label: "Nutzer" }
+    ];
+    let users = [];
+    let roleFilter = "alle";
+    let search = "";
+    users.filter((user) => {
+      if (!search.trim()) return true;
+      const needle = search.trim().toLowerCase();
+      return user.email.toLowerCase().includes(needle);
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">User Management</h2> `);
+    Card($$renderer2, {
+      title: "Benutzeranfragen",
+      children: ($$renderer3) => {
+        {
           $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.target_id)}</p>`);
-        } else {
-          $$renderer3.push("<!--[!-->");
-        }
-        $$renderer3.push(`<!--]--></div>`);
-      } else {
-        $$renderer3.push("<!--[!-->");
-        if (rule.target_type === "user") {
-          $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<div class="field"><label${attr("for", `push-user-${rule.id}`)}>Person</label> `);
-          $$renderer3.select(
-            {
-              id: `push-user-${rule.id}`,
-              class: "select",
-              value: rule.target_id
-            },
-            ($$renderer4) => {
-              $$renderer4.push(`<!--[-->`);
-              const each_array_1 = ensure_array_like(users);
-              for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
-                let user = each_array_1[$$index_1];
-                $$renderer4.option({ value: user.id }, ($$renderer5) => {
-                  $$renderer5.push(`${escape_html(user.email)}`);
-                });
-              }
-              $$renderer4.push(`<!--]-->`);
-            },
-            void 0,
-            { "input-invalid": Boolean(fieldErrors.target_id) }
-          );
-          $$renderer3.push(` `);
-          if (fieldErrors.target_id) {
-            $$renderer3.push("<!--[-->");
-            $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.target_id)}</p>`);
-          } else {
-            $$renderer3.push("<!--[!-->");
-          }
-          $$renderer3.push(`<!--]--></div>`);
-        } else {
-          $$renderer3.push("<!--[!-->");
+          $$renderer3.push(`<p class="text-muted">Lade Anfragen...</p>`);
         }
         $$renderer3.push(`<!--]-->`);
-      }
-      $$renderer3.push(`<!--]--> <div class="toggle-row push-rule-toggle svelte-fbz8p4"><div class="list-meta"><strong>Zuletzt ausgefuhrt</strong> <span class="text-muted">${escape_html(formatLastExecuted(rule.last_sent_at))}</span></div></div> `);
-      if (rule.notification_type === "recurring") {
-        $$renderer3.push("<!--[-->");
-        $$renderer3.push(`<div class="field push-rule-interval"><label${attr("for", `push-interval-value-${rule.id}`)}>Intervall</label> <div class="push-rule-interval__controls svelte-fbz8p4"><input${attr("id", `push-interval-value-${rule.id}`)}${attr_class("input", void 0, { "input-invalid": Boolean(fieldErrors.interval_value) })} type="number" min="1"${attr("value", rule.interval_value)}/> `);
-        SegmentedControl($$renderer3, {
-          options: intervalUnitOptions,
-          ariaLabel: "Intervall-Einheit",
-          get value() {
-            return rule.interval_unit;
-          },
-          set value($$value) {
-            rule.interval_unit = $$value;
-            $$settled = false;
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Benutzerverwaltung",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="toolbar svelte-1t40esv"><input class="input" placeholder="Suche nach Nutzername"${attr("value", search)}/> `);
+        $$renderer3.select({ value: roleFilter }, ($$renderer4) => {
+          $$renderer4.push(`<!--[-->`);
+          const each_array_1 = ensure_array_like(roleOptions);
+          for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
+            let option = each_array_1[$$index_1];
+            $$renderer4.option({ value: option.value }, ($$renderer5) => {
+              $$renderer5.push(`${escape_html(option.label)}`);
+            });
           }
+          $$renderer4.push(`<!--]-->`);
         });
-        $$renderer3.push(`<!----></div> `);
-        if (fieldErrors.interval_value) {
+        $$renderer3.push(`</div> `);
+        {
           $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.interval_value)}</p>`);
-        } else {
-          $$renderer3.push("<!--[!-->");
+          $$renderer3.push(`<p class="text-muted">Lade Benutzer...</p>`);
         }
-        $$renderer3.push(`<!--]--></div> <div class="split-grid push-rule-dates"><div class="field"><label${attr("for", `push-start-${rule.id}`)}>Startdatum</label> <input${attr("id", `push-start-${rule.id}`)} class="input" type="date"${attr("value", rule.start_date)}/></div> <div class="field"><label${attr("for", `push-end-${rule.id}`)}>Enddatum</label> <input${attr("id", `push-end-${rule.id}`)}${attr_class("input", void 0, { "input-invalid": Boolean(fieldErrors.end_date) })} type="date"${attr("value", rule.end_date)}/> `);
-        if (fieldErrors.end_date) {
-          $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<p class="field-error">${escape_html(fieldErrors.end_date)}</p>`);
-        } else {
-          $$renderer3.push("<!--[!-->");
-        }
-        $$renderer3.push(`<!--]--></div></div>`);
-      } else {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--></div> `);
-      {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--> `);
-      {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--> <div class="actions push-rule-actions svelte-fbz8p4"><button class="btn btn-primary" type="button"${attr("disabled", deleteLoading, true)}>`);
-      {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--> ${escape_html("Speichern")}</button> <button class="btn btn-outline" type="button"${attr("disabled", !rule.is_active, true)}>`);
-      {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--> ${escape_html("Jetzt senden")}</button> <button class="btn btn-danger" type="button"${attr("disabled", deleteLoading, true)}>`);
-      {
-        $$renderer3.push("<!--[!-->");
-      }
-      $$renderer3.push(`<!--]--> ${escape_html("Loschen")}</button></div></article>`);
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminSidebar($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let tabs = fallback($$props["tabs"], () => [], true);
+    let activeTab = fallback($$props["activeTab"], "overview");
+    let onSelect = fallback($$props["onSelect"], null);
+    $$renderer2.push(`<aside class="admin-sidebar svelte-6rrwnf"><nav class="admin-sidebar__nav svelte-6rrwnf" aria-label="Admin Navigation"><!--[-->`);
+    const each_array = ensure_array_like(tabs);
+    for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
+      let tab = each_array[$$index];
+      $$renderer2.push(`<button type="button"${attr_class(`admin-sidebar__item ${activeTab === tab.id ? "is-active" : ""}`, "svelte-6rrwnf")}>${escape_html(tab.label)}</button>`);
     }
-    do {
-      $$settled = true;
-      $$inner_renderer = $$renderer2.copy();
-      $$render_inner($$inner_renderer);
-    } while (!$$settled);
-    $$renderer2.subsume($$inner_renderer);
-    bind_props($$props, { rule, users, onSave, onDelete, onSend });
+    $$renderer2.push(`<!--]--></nav></aside>`);
+    bind_props($$props, { tabs, activeTab, onSelect });
+  });
+}
+function AdminTopBar($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let title = fallback($$props["title"], "Admin");
+    let subtitle = fallback($$props["subtitle"], "");
+    let onRefresh = fallback($$props["onRefresh"], null);
+    $$renderer2.push(`<header class="admin-topbar svelte-1qt4vx7"><div><h2 class="section-title">${escape_html(title)}</h2> `);
+    if (subtitle) {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<p class="text-muted">${escape_html(subtitle)}</p>`);
+    } else {
+      $$renderer2.push("<!--[!-->");
+    }
+    $$renderer2.push(`<!--]--></div> <button class="btn btn-outline" type="button">Aktualisieren</button></header>`);
+    bind_props($$props, { title, subtitle, onRefresh });
+  });
+}
+function AdminOverview($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let stats = null;
+    let loading = true;
+    let lastUpdatedAt = "";
+    const loadStats = async (showErrorToast = true) => {
+      try {
+        const data = await apiFetch("/api/admin/stats", { toastOnError: false });
+        stats = data;
+        lastUpdatedAt = (/* @__PURE__ */ new Date()).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      } catch (error) {
+        if (showErrorToast) {
+          pushToast(
+            error instanceof Error ? error.message : "Admin-Statistiken konnten nicht geladen werden.",
+            "error"
+          );
+        }
+      } finally {
+        loading = false;
+      }
+    };
+    const refresh = async () => {
+      await loadStats();
+    };
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block">`);
+    AdminHeader($$renderer2, { lastUpdatedAt, loading, onRefresh: () => void loadStats() });
+    $$renderer2.push(`<!----> `);
+    AdminStats($$renderer2, { stats, loading });
+    $$renderer2.push(`<!----></section>`);
+    bind_props($$props, { refresh });
+  });
+}
+function AdminObservability($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const trackedMetrics = [
+      { key: "api.p95_latency_ms", label: "API p95 (ms)" },
+      { key: "api.error_rate", label: "API Fehlerquote (%)" },
+      { key: "ws.messages_per_sec", label: "WS msg/s" },
+      { key: "db.slow_queries", label: "DB Slow Queries" },
+      { key: "system.cpu_load_1m", label: "CPU Load 1m" },
+      { key: "system.ram_used_mb", label: "RAM Used (MB)" }
+    ];
+    const investigateTarget = (metric) => {
+      if (metric.startsWith("api.")) return "/admin?tab=api-heatmap";
+      if (metric.startsWith("ws.")) return "/admin?tab=websocket";
+      if (metric.startsWith("db.")) return "/admin?tab=database";
+      if (metric.startsWith("queue.")) return "/admin?tab=queue";
+      if (metric.startsWith("redis.")) return "/admin?tab=redis";
+      return "/admin?tab=errors";
+    };
+    let loading = true;
+    let series = /* @__PURE__ */ new Map();
+    let alerts = [];
+    let testingAlerts = false;
+    let downloadLoading = false;
+    const pointsToPath = (points) => {
+      if (points.length === 0) return "";
+      const width = 280;
+      const height = 64;
+      const values = points.map((point) => point.value);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const span = max - min || 1;
+      return points.map((point, index) => {
+        const x = index / Math.max(1, points.length - 1) * width;
+        const y = height - (point.value - min) / span * height;
+        return `${x},${y}`;
+      }).join(" ");
+    };
+    const fmtNumber = (value) => Number(0).toFixed(2);
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Observability</h2> <div class="actions"><button class="btn btn-outline" type="button"${attr("disabled", loading, true)}>Aktualisieren</button> <button class="btn btn-outline" type="button"${attr("disabled", testingAlerts, true)}>${escape_html("Alerts testen")}</button> <button class="btn btn-outline" type="button"${attr("disabled", downloadLoading, true)}>Report JSON</button> <button class="btn btn-outline" type="button"${attr("disabled", downloadLoading, true)}>Report CSV</button> <button class="btn btn-primary" type="button">Alert erstellen</button></div> <div class="grid-3">`);
+    Card($$renderer2, {
+      title: "API Request Count",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "API p95",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(fmtNumber())} ms`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "API Error Rate",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(fmtNumber())} %`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "WS Clients",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "WS Msg/s",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(fmtNumber())}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "WS Dropped",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Queue Throughput",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(fmtNumber())}/min`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "DB Slow Queries",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "System CPU Load",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(fmtNumber())}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    Card($$renderer2, {
+      title: "Timeseries",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="chart-grid svelte-1uys780"><!--[-->`);
+        const each_array = ensure_array_like(trackedMetrics);
+        for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
+          let metric = each_array[$$index];
+          $$renderer3.push(`<div class="mini-chart svelte-1uys780"><div class="mini-chart__title svelte-1uys780">${escape_html(metric.label)}</div> <svg viewBox="0 0 280 64" preserveAspectRatio="none"${attr("aria-label", metric.label)} class="svelte-1uys780"><polyline${attr("points", pointsToPath(series.get(metric.key) ?? []))} fill="none" stroke="var(--color-primary)" stroke-width="2"></polyline></svg></div>`);
+        }
+        $$renderer3.push(`<!--]--></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Alerts",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Metric</th><th>Threshold</th><th>Letzter Trigger</th><th>Investigate</th></tr></thead><tbody>`);
+        if (alerts.length === 0) {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<tr><td colspan="5" class="text-muted">Keine Alerts.</td></tr>`);
+        } else {
+          $$renderer3.push("<!--[!-->");
+          $$renderer3.push(`<!--[-->`);
+          const each_array_1 = ensure_array_like(alerts);
+          for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
+            let alert = each_array_1[$$index_1];
+            $$renderer3.push(`<tr><td>${escape_html(alert.name)}</td><td>${escape_html(alert.metric)}</td><td>${escape_html(alert.operator)} ${escape_html(alert.threshold)}</td><td>${escape_html(alert.last_triggered_at ? new Date(alert.last_triggered_at).toLocaleString("de-DE") : "-")}</td><td><a${attr("href", investigateTarget(alert.metric))}>Öffnen</a></td></tr>`);
+          }
+          $$renderer3.push(`<!--]-->`);
+        }
+        $$renderer3.push(`<!--]--></tbody></table></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section> `);
+    {
+      $$renderer2.push("<!--[!-->");
+    }
+    $$renderer2.push(`<!--]-->`);
+  });
+}
+function AdminSystemMonitor($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const toMb = (value) => `${((Number(0) || 0) / (1024 * 1024)).toFixed(1)} MB`;
+    const uptime = (seconds) => {
+      const s = Math.max(0, Math.floor(Number(0)));
+      const h = Math.floor(s / 3600);
+      const m = Math.floor(s % 3600 / 60);
+      return `${h}h ${m}m`;
+    };
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Live System Monitor</h2> <div class="grid-2">`);
+    Card($$renderer2, {
+      title: "CPU Usage",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1pk13lw">${escape_html(0 .toFixed(2))}%</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Memory Usage",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1pk13lw">${escape_html(toMb())}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Uptime",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1pk13lw">${escape_html(uptime())}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Active Connections",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1pk13lw">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<p class="text-muted">Lade Systemdaten...</p>`);
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminJobs($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Background Job Dashboard</h2> `);
+    Card($$renderer2, {
+      title: "Cron Jobs",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Jobs...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminDocker($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Docker Status</h2> `);
+    Card($$renderer2, {
+      title: "Container",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Containerstatus...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminWebSocket($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const fmt = (iso) => "-";
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">WebSocket Monitor</h2> <div class="grid-2">`);
+    Card($$renderer2, {
+      title: "Connected Clients",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1c1y0p2">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Online Users",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1c1y0p2">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Messages / Minute",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1c1y0p2">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Last Broadcast",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-1c1y0p2">${escape_html("-")}</p> <p class="text-muted">${escape_html(fmt())}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<p class="text-muted">Lade WebSocket-Daten...</p>`);
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminFeatureFlags($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Feature Flags</h2> `);
+    Card($$renderer2, {
+      title: "Feature Toggle Panel",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Flags...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminDatabaseHealth($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const toMb = (bytes) => `${((Number(0) || 0) / (1024 * 1024)).toFixed(2)} MB`;
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Database Health</h2> <div class="grid-2">`);
+    Card($$renderer2, {
+      title: "Connection Status",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-7mge44">${escape_html("-")}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Active Connections",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-7mge44">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "DB Size",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-7mge44">${escape_html(toMb())}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Slow Query Count",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-7mge44">${escape_html(0)}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Migration Version",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="stat-value svelte-7mge44">${escape_html("-")}</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<p class="text-muted">Lade DB-Health...</p>`);
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminAuditLogs($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let exporting = false;
+    let user = "";
+    let action = "";
+    let search = "";
+    let dateFrom = "";
+    let dateTo = "";
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Audit Log Viewer</h2> `);
+    Card($$renderer2, {
+      title: "Filter",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="form-grid grid-3"><label><span>User</span> <input class="input"${attr("value", user)} placeholder="z. B. admin@"/></label> <label><span>Action</span> <input class="input"${attr("value", action)} placeholder="z. B. admin.user"/></label> <label><span>Search</span> <input class="input"${attr("value", search)} placeholder="Metadata durchsuchen"/></label> <label><span>Von</span> <input class="input" type="date"${attr("value", dateFrom)}/></label> <label><span>Bis</span> <input class="input" type="date"${attr("value", dateTo)}/></label></div> <div class="actions"><button class="btn btn-outline" type="button">Filter anwenden</button> <button class="btn btn-primary" type="button"${attr("disabled", exporting, true)}>${escape_html("Export JSON")}</button></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Audit Logs",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Logs...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+class AdminWsClient {
+  socket = null;
+  reconnectTimer = null;
+  pingTimer = null;
+  reconnectAttempt = 0;
+  listeners = /* @__PURE__ */ new Set();
+  subscriptions = /* @__PURE__ */ new Map();
+  clearTimers() {
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.pingTimer !== null) {
+      clearInterval(this.pingTimer);
+      this.pingTimer = null;
+    }
+  }
+  scheduleReconnect() {
+    return;
+  }
+  send(payload) {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
+    this.socket.send(JSON.stringify(payload));
+  }
+  syncSubscriptions() {
+    for (const [channel, filters] of this.subscriptions) {
+      this.send({ type: "subscribe", channel, filters });
+    }
+  }
+  connect() {
+    return;
+  }
+  disconnectIfIdle() {
+    if (this.subscriptions.size > 0) return;
+    this.clearTimers();
+    if (this.socket) {
+      try {
+        this.socket.close();
+      } catch {
+      }
+      this.socket = null;
+    }
+  }
+  subscribe(channel, filters = {}) {
+    this.subscriptions.set(channel, filters);
+    this.connect();
+    this.send({ type: "subscribe", channel, filters });
+  }
+  unsubscribe(channel) {
+    this.subscriptions.delete(channel);
+    this.send({ type: "unsubscribe", channel });
+    this.disconnectIfIdle();
+  }
+  onMessage(listener) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+}
+const adminWsClient = new AdminWsClient();
+const adminLogsStore = writable([]);
+const adminErrorsStore = writable([]);
+const adminQueueStore = writable(null);
+const adminDockerStore = writable(null);
+const adminRedisStore = writable(null);
+const adminApiMetricsStore = writable(null);
+let listenerBound = false;
+let listenerCleanup = null;
+const channelRefCount = /* @__PURE__ */ new Map();
+const bindListener = () => {
+  if (listenerBound) return;
+  listenerBound = true;
+  listenerCleanup = adminWsClient.onMessage((message) => {
+    if (message.type !== "event" && message.type !== "snapshot") return;
+    if (message.channel === "logs") {
+      const payload = message.data;
+      const items = Array.isArray(payload.items) ? payload.items : [];
+      if (message.type === "snapshot") {
+        adminLogsStore.set(items);
+      } else {
+        adminLogsStore.update((prev) => [...prev, ...items.length ? items : [message.data]].slice(-1e3));
+      }
+      return;
+    }
+    if (message.channel === "errors") {
+      const payload = message.data;
+      if (message.type === "snapshot") {
+        adminErrorsStore.set(Array.isArray(payload.items) ? payload.items : []);
+      } else {
+        adminErrorsStore.update((prev) => [message.data, ...prev].slice(0, 500));
+      }
+      return;
+    }
+    if (message.channel === "queue") {
+      adminQueueStore.set(message.data);
+      return;
+    }
+    if (message.channel === "docker") {
+      adminDockerStore.set(message.data);
+      return;
+    }
+    if (message.channel === "redis") {
+      adminRedisStore.set(message.data);
+      return;
+    }
+    if (message.channel === "api-metrics") {
+      adminApiMetricsStore.set(message.data);
+    }
+  });
+};
+const maybeUnbindListener = () => {
+  const totalRefs = Array.from(channelRefCount.values()).reduce((sum, count) => sum + count, 0);
+  if (totalRefs > 0) return;
+  listenerCleanup?.();
+  listenerCleanup = null;
+  listenerBound = false;
+};
+const subscribeAdminChannel = (channel, filters = {}) => {
+  bindListener();
+  const current = channelRefCount.get(channel) ?? 0;
+  channelRefCount.set(channel, current + 1);
+  if (current === 0) {
+    adminWsClient.subscribe(channel, filters);
+  } else if (current > 0 && Object.keys(filters).length > 0) {
+    adminWsClient.subscribe(channel, filters);
+  }
+  return () => {
+    const count = channelRefCount.get(channel) ?? 0;
+    const next = Math.max(0, count - 1);
+    if (next === 0) {
+      channelRefCount.delete(channel);
+      adminWsClient.unsubscribe(channel);
+    } else {
+      channelRefCount.set(channel, next);
+    }
+    maybeUnbindListener();
+  };
+};
+function AdminLogStream($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let logs = [];
+    let minLevel = "info";
+    let autoScroll = true;
+    let mounted = false;
+    let unsubscribeChannel = null;
+    const levelFilter = () => {
+      return ["info", "warn", "error", "fatal"];
+    };
+    const resubscribe = () => {
+      unsubscribeChannel?.();
+      unsubscribeChannel = subscribeAdminChannel("logs", { level: levelFilter() });
+    };
+    onDestroy(() => {
+      mounted = false;
+      unsubscribeChannel?.();
+    });
+    if (mounted) {
+      resubscribe();
+    }
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Real-time Log Stream</h2> `);
+    Card($$renderer2, {
+      title: "Log Stream",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="actions"><button class="btn btn-outline" type="button">${escape_html("Pause")}</button> <label><span class="text-muted">Level</span> `);
+        $$renderer3.select({ value: minLevel }, ($$renderer4) => {
+          $$renderer4.option({ value: "trace" }, ($$renderer5) => {
+            $$renderer5.push(`trace`);
+          });
+          $$renderer4.option({ value: "debug" }, ($$renderer5) => {
+            $$renderer5.push(`debug`);
+          });
+          $$renderer4.option({ value: "info" }, ($$renderer5) => {
+            $$renderer5.push(`info`);
+          });
+          $$renderer4.option({ value: "warn" }, ($$renderer5) => {
+            $$renderer5.push(`warn`);
+          });
+          $$renderer4.option({ value: "error" }, ($$renderer5) => {
+            $$renderer5.push(`error`);
+          });
+          $$renderer4.option({ value: "fatal" }, ($$renderer5) => {
+            $$renderer5.push(`fatal`);
+          });
+        });
+        $$renderer3.push(`</label> <label class="toggle-inline"><input type="checkbox"${attr("checked", autoScroll, true)}/> <span>Auto-scroll</span></label> <button class="btn btn-outline" type="button">Clear</button></div> <div class="log-terminal svelte-gl5zbt"><!--[-->`);
+        const each_array = ensure_array_like(logs);
+        for (let idx = 0, $$length = each_array.length; idx < $$length; idx++) {
+          let item = each_array[idx];
+          $$renderer3.push(`<div${attr_class(`log-line level-${item.level}`, "svelte-gl5zbt")}><span class="log-ts svelte-gl5zbt">${escape_html(item.ts)}</span> <span class="log-level svelte-gl5zbt">${escape_html(item.level.toUpperCase())}</span> <span class="log-msg">${escape_html(item.msg)}</span></div>`);
+        }
+        $$renderer3.push(`<!--]--></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminQueueMonitor($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Worker Queue Monitor</h2> <div class="grid-3">`);
+    Card($$renderer2, {
+      title: "Active",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Pending",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Failed",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Completed",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Avg Processing",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0 .toFixed(1))} ms`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Retries",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html(0)}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    Card($$renderer2, {
+      title: "Jobs",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Queue-Daten...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    {
+      $$renderer2.push("<!--[!-->");
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminRedisMonitor($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Redis Monitor</h2> <div class="grid-3">`);
+    Card($$renderer2, {
+      title: "Health",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("Disconnected")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Configured",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("No")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Clients",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("-")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Memory",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("-")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Keys",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("-")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Slowlog",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<!---->${escape_html("-")}`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div> `);
+    {
+      $$renderer2.push("<!--[-->");
+      $$renderer2.push(`<p class="text-muted">Lade Redis-Daten...</p>`);
+    }
+    $$renderer2.push(`<!--]--> `);
+    {
+      $$renderer2.push("<!--[!-->");
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminSecurityPanel($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let user = "";
+    let action = "";
+    let dateFrom = "";
+    let dateTo = "";
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Security Audit Panel</h2> `);
+    Card($$renderer2, {
+      title: "Filter",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="form-grid grid-2"><label><span>User</span><input class="input"${attr("value", user)}/></label> <label><span>Action</span><input class="input"${attr("value", action)}/></label> <label><span>Von</span><input class="input" type="date"${attr("value", dateFrom)}/></label> <label><span>Bis</span><input class="input" type="date"${attr("value", dateTo)}/></label></div> <div class="actions"><button class="btn btn-outline" type="button">Filter anwenden</button></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Audit Entries",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Einträge...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminErrorTracking($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let severity = "";
+    onDestroy(() => {
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Live Error Tracking</h2> `);
+    Card($$renderer2, {
+      title: "Errors",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="actions"><label><span class="text-muted">Severity</span> `);
+        $$renderer3.select({ value: severity }, ($$renderer4) => {
+          $$renderer4.option({ value: "" }, ($$renderer5) => {
+            $$renderer5.push(`Alle`);
+          });
+          $$renderer4.option({ value: "warn" }, ($$renderer5) => {
+            $$renderer5.push(`warn`);
+          });
+          $$renderer4.option({ value: "error" }, ($$renderer5) => {
+            $$renderer5.push(`error`);
+          });
+          $$renderer4.option({ value: "fatal" }, ($$renderer5) => {
+            $$renderer5.push(`fatal`);
+          });
+        });
+        $$renderer3.push(`</label> <button class="btn btn-outline" type="button">Refresh</button></div> `);
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Fehler...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    {
+      $$renderer2.push("<!--[!-->");
+    }
+    $$renderer2.push(`<!--]--></section>`);
+  });
+}
+function AdminApiHeatmap($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let items = [];
+    let sortKey = "totalRequests";
+    onDestroy(() => {
+    });
+    [...items].sort((a, b) => {
+      const l = a[sortKey];
+      const r = b[sortKey];
+      if (typeof l === "string" && typeof r === "string") {
+        return r.localeCompare(l);
+      }
+      const left = Number(l ?? 0);
+      const right = Number(r ?? 0);
+      return right - left;
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">API Request Heatmap</h2> `);
+    Card($$renderer2, {
+      title: "Endpoint Metrics",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Heatmap...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
   });
 }
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
-    const CHANGELOG_STORAGE_KEY = "pfadi_admin_changelog";
-    const DELETE_MODAL_OVERLAY_ID = "admin-user-delete-modal";
-    let users = [];
-    let settings = [];
-    let rules = [];
-    let error = "";
-    let userLoadError = "";
-    let statusMessage = "";
-    let quietStart = "21:00";
-    let quietEnd = "06:00";
-    let quietHoursSaving = false;
-    let rulesLoading = false;
-    let versionInfo = null;
-    let healthInfo = null;
-    let changelog = [];
-    let updatesLoading = false;
-    let updateActionLoading = false;
-    let selectedUserId = "";
-    let userSearch = "";
-    let roleFilter = "all";
-    let statusFilter = "all";
-    let userRoleDraft = "user";
-    let userActionLoading = false;
-    let deleteModalOpen = false;
-    let deleteConfirmText = "";
-    let deleteLoading = false;
-    let adminLogs = [];
-    const customRules = () => rules.filter((rule) => rule.rule_type === "custom-notification");
-    const addAdminLog = (level, message) => {
-      const entry = {
-        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        ts: (/* @__PURE__ */ new Date()).toISOString(),
-        level,
-        message
-      };
-      adminLogs = [entry, ...adminLogs].slice(0, 40);
+    let activeTab = "overview";
+    const tabs = [
+      { id: "overview", label: "Overview" },
+      { id: "observability", label: "Observability" },
+      { id: "users", label: "Users" },
+      { id: "system-monitor", label: "System Monitor" },
+      { id: "jobs", label: "Jobs" },
+      { id: "docker", label: "Docker" },
+      { id: "websocket", label: "WebSocket" },
+      { id: "feature-flags", label: "Feature Flags" },
+      { id: "database", label: "Database" },
+      { id: "audit-logs", label: "Audit Logs" },
+      { id: "log-stream", label: "Log Stream" },
+      { id: "queue", label: "Queue" },
+      { id: "redis", label: "Redis" },
+      { id: "security", label: "Security" },
+      { id: "errors", label: "Errors" },
+      { id: "api-heatmap", label: "API Heatmap" }
+    ];
+    const tabTitles = {
+      overview: "Overview",
+      observability: "Observability",
+      users: "Users",
+      "system-monitor": "System Monitor",
+      jobs: "Background Jobs",
+      docker: "Docker",
+      websocket: "WebSocket",
+      "feature-flags": "Feature Flags",
+      database: "Database Health",
+      "audit-logs": "Audit Logs",
+      "log-stream": "Log Stream",
+      queue: "Queue Monitor",
+      redis: "Redis Monitor",
+      security: "Security Audit",
+      errors: "Error Tracking",
+      "api-heatmap": "API Heatmap"
     };
-    const normalizeRule = (rule) => ({
-      ...rule,
-      title: rule.title ?? "",
-      message: rule.message ?? "",
-      notification_type: rule.notification_type ?? "instant",
-      target_type: rule.target_type ?? "all",
-      target_id: rule.target_id ?? "",
-      interval_value: rule.interval_value ?? 1,
-      interval_unit: rule.interval_unit ?? "days",
-      start_date: rule.start_date ?? "",
-      end_date: rule.end_date ?? "",
-      last_sent_at: rule.last_sent_at ?? null,
-      is_active: rule.is_active === 1 || rule.is_active === true
+    const normalizeTab = (value) => {
+      const candidate = String(value ?? "").trim();
+      return tabs.some((tab) => tab.id === candidate) ? candidate : "overview";
+    };
+    const setTab = async (tab) => {
+      activeTab = tab;
+      const params = new URLSearchParams(store_get($$store_subs ??= {}, "$page", page).url.searchParams);
+      params.set("tab", tab);
+      await goto(`${store_get($$store_subs ??= {}, "$page", page).url.pathname}?${params.toString()}`, {});
+    };
+    onDestroy(() => {
     });
-    const filteredUsers = () => {
-      const search = userSearch.trim().toLowerCase();
-      return users.filter(
-        (user) => true
-      ).filter((user) => true).filter((user) => search ? user.email.toLowerCase().includes(search) : true).sort((a, b) => a.email.localeCompare(b.email));
-    };
-    const selectedUser = () => users.find((user) => user.id === selectedUserId) ?? null;
-    const statusLabel = (status) => {
-      if (status === "approved") return "Freigegeben";
-      if (status === "pending") return "Ausstehend";
-      return "Abgelehnt";
-    };
-    const statusBadgeClass = (status) => {
-      if (status === "approved") return "badge badge-success";
-      if (status === "pending") return "badge badge-warning";
-      return "badge badge-danger";
-    };
-    const healthBadgeClass = (status) => {
-      if (status === "ok") return "badge badge-success";
-      if (status === "shutting_down") return "badge badge-warning";
-      return "badge badge-danger";
-    };
-    const healthLabel = (status) => {
-      if (status === "ok") return "OK";
-      if (status === "shutting_down") return "Wird beendet";
-      if (status === "degraded") return "Gestort";
-      return "Unbekannt";
-    };
-    const syncSelectedUser = () => {
-      const currentFiltered = filteredUsers();
-      if (!currentFiltered.length) {
-        selectedUserId = "";
-        return;
-      }
-      if (!currentFiltered.some((item) => item.id === selectedUserId)) {
-        selectedUserId = currentFiltered[0].id;
-      }
-    };
-    const formatDateTime = (value) => {
-      if (!value) return "Unbekannt";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return value;
-      return new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "short" }).format(date);
-    };
-    const formatUptime = (seconds) => {
-      if (typeof seconds !== "number" || !Number.isFinite(seconds)) return "Unbekannt";
-      const days = Math.floor(seconds / 86400);
-      const hours = Math.floor(seconds % 86400 / 3600);
-      const minutes = Math.floor(seconds % 3600 / 60);
-      if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-      if (hours > 0) return `${hours}h ${minutes}m`;
-      return `${minutes}m`;
-    };
-    const loadChangelog = () => {
-      if (typeof localStorage === "undefined") {
-        changelog = [];
-        return;
-      }
-      try {
-        const parsed = JSON.parse(localStorage.getItem(CHANGELOG_STORAGE_KEY) || "[]");
-        changelog = Array.isArray(parsed) ? parsed.slice(0, 15) : [];
-      } catch {
-        changelog = [];
-      }
-    };
-    const storeChangelogEntry = (entry) => {
-      if (!entry || typeof localStorage === "undefined") return;
-      const normalized = {
-        version: String(entry.version || "").trim(),
-        commit: String(entry.commit || "").trim(),
-        updated_at: String(entry.updated_at || "").trim()
-      };
-      if (!normalized.version || !normalized.commit || !normalized.updated_at) return;
-      const next = [
-        normalized,
-        ...changelog.filter((item) => item.commit !== normalized.commit)
-      ].slice(0, 15);
-      changelog = next;
-      localStorage.setItem(CHANGELOG_STORAGE_KEY, JSON.stringify(next));
-    };
-    const loadOverview = async () => {
-      try {
-        const [version, health] = await Promise.all([
-          apiFetch("/api/system/version", { toastOnError: false }).catch(() => null),
-          apiFetch("/api/health", { toastOnError: false }).catch(() => null)
-        ]);
-        versionInfo = version;
-        healthInfo = health;
-        storeChangelogEntry(version);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Systemstatus konnte nicht geladen werden.";
-        addAdminLog("error", msg);
-      }
-    };
-    const load = async () => {
-      error = "";
-      userLoadError = "";
-      const currentSession = get(session);
-      if (!currentSession || currentSession.role !== "admin") {
-        users = [];
-        selectedUserId = "";
-        return;
-      }
-      try {
-        const loadedUsers = await apiFetch("/api/admin/users?role=all");
-        console.log("[admin/users] response", loadedUsers);
-        users = loadedUsers;
-        settings = await apiFetch("/api/admin/settings");
-        rules = (await apiFetch("/api/admin/push-rules")).map(normalizeRule);
-        const map = new Map(settings.map((item) => [item.key, item.value]));
-        quietStart = map.get("quiet_hours_start") ?? "21:00";
-        quietEnd = map.get("quiet_hours_end") ?? "06:00";
-        syncSelectedUser();
-        await loadOverview();
-        addAdminLog("info", "Admin-Daten geladen.");
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Admin-Daten konnten nicht geladen werden.";
-        userLoadError = `Benutzer konnten nicht geladen werden: ${message}`;
-        error = "Admin-Daten konnten nicht geladen werden.";
-        users = [];
-        selectedUserId = "";
-        addAdminLog("error", message);
-        console.error("[admin/users] request failed", err);
-      }
-    };
-    const saveRule = async (rule) => {
-      statusMessage = "";
-      try {
-        await apiFetch(`/api/admin/push-rules/${rule.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            title: rule.title || "",
-            message: rule.message || "",
-            notification_type: rule.notification_type,
-            target_type: rule.target_type,
-            target_id: rule.target_type === "all" ? null : rule.target_id || null,
-            interval_value: rule.notification_type === "recurring" ? Number(rule.interval_value || 1) : null,
-            interval_unit: rule.notification_type === "recurring" ? rule.interval_unit : null,
-            start_date: rule.notification_type === "recurring" ? rule.start_date || null : null,
-            end_date: rule.notification_type === "recurring" ? rule.end_date || null : null,
-            is_active: Boolean(rule.is_active)
-          })
-        });
-        statusMessage = "Push-Regel gespeichert.";
-        pushToast(statusMessage, "success", 1500);
-        addAdminLog("info", "Push-Regel gespeichert.");
-        await load();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Push-Regel konnte nicht gespeichert werden.";
-        error = msg;
-        pushToast(msg, "error");
-        addAdminLog("error", msg);
-        throw err;
-      }
-    };
-    const deleteRule = async (id) => {
-      if (!confirm("Push-Regel wirklich loschen?")) return;
-      try {
-        await apiFetch(`/api/admin/push-rules/${id}`, { method: "DELETE" });
-        statusMessage = "Push-Regel geloscht.";
-        pushToast(statusMessage, "success", 1500);
-        addAdminLog("info", "Push-Regel geloescht.");
-        await load();
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Push-Regel konnte nicht geloscht werden.";
-        error = msg;
-        pushToast(msg, "error");
-        addAdminLog("error", msg);
-        throw err;
-      }
-    };
-    const sendRuleNow = async (id) => {
-      try {
-        const result = await apiFetch(`/api/admin/push-rules/${id}/send`, { method: "POST" });
-        statusMessage = `Push gesendet (Gesendet: ${result?.delivered ?? 0}, Ubersprungen: ${result?.skipped ?? 0}).`;
-        pushToast(statusMessage, "success", 1500);
-        addAdminLog("info", "Push sofort gesendet.");
-        await load();
-        return result;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Push konnte nicht gesendet werden.";
-        error = msg;
-        pushToast(msg, "error");
-        addAdminLog("error", msg);
-        throw err;
-      }
-    };
-    {
-      const current = selectedUser();
-      if (current) {
-        userRoleDraft = current.role;
-      }
+    if (store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("tab") !== activeTab) {
+      activeTab = normalizeTab(store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("tab"));
     }
-    syncSelectedUser();
-    if (store_get($$store_subs ??= {}, "$session", session)?.role === "admin") {
-      loadChangelog();
-      void load();
-    }
-    deleteModalOpen = store_get($$store_subs ??= {}, "$activeOverlayId", activeOverlayId) === DELETE_MODAL_OVERLAY_ID;
-    $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Admin</h1></section> `);
+    $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Admin Dashboard</h1></section> `);
     if (!store_get($$store_subs ??= {}, "$session", session) || store_get($$store_subs ??= {}, "$session", session).role !== "admin") {
       $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<section class="admin-console-section svelte-1jef3w8"><div class="list-row"><div class="list-meta"><strong>Kein Zugriff</strong></div> <span class="badge badge-danger">Admin erforderlich</span></div></section>`);
+      Card($$renderer2, {
+        title: "Kein Zugriff",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<p class="text-muted">Admin-Berechtigung erforderlich.</p>`);
+        },
+        $$slots: { default: true }
+      });
     } else {
       $$renderer2.push("<!--[!-->");
-      if (error) {
+      $$renderer2.push(`<div class="admin-layout svelte-1jef3w8">`);
+      AdminSidebar($$renderer2, { tabs, activeTab, onSelect: (tab) => void setTab(tab) });
+      $$renderer2.push(`<!----> <section class="admin-content svelte-1jef3w8">`);
+      AdminTopBar($$renderer2, {
+        title: tabTitles[activeTab],
+        subtitle: "Admin Control Center",
+        onRefresh: () => void setTab(activeTab)
+      });
+      $$renderer2.push(`<!----> `);
+      if (activeTab === "overview") {
         $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="status-banner error">${escape_html(error)}</p>`);
+        $$renderer2.push(`<div>`);
+        AdminOverview($$renderer2, {});
+        $$renderer2.push(`<!----></div>`);
       } else {
         $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> `);
-      if (statusMessage) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="status-banner success">${escape_html(statusMessage)}</p>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Overview</h2> <div class="hairline-list"><div class="list-row"><div class="list-meta"><strong>Version</strong></div> <span class="badge badge-secondary">${escape_html(versionInfo?.version ?? "Unbekannt")}</span></div> <div class="list-row"><div class="list-meta"><strong>Commit</strong></div> <span class="badge badge-secondary">${escape_html(versionInfo?.commit ?? "Unbekannt")}</span></div> <div class="list-row"><div class="list-meta"><strong>Uptime</strong></div> <span class="badge badge-secondary">${escape_html(formatUptime(healthInfo?.uptimeSeconds))}</span></div> <div class="list-row"><div class="list-meta"><strong>DB Status</strong></div> <span${attr_class(clsx(healthBadgeClass(healthInfo?.status)), "svelte-1jef3w8")}>${escape_html(healthLabel(healthInfo?.status))}</span></div></div></section> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Users</h2> <div class="admin-toolbar-grid svelte-1jef3w8"><div class="field"><label for="userSearch">Suche</label> <input id="userSearch" class="input"${attr("value", userSearch)} placeholder="E-Mail suchen"/></div> <div class="field"><label for="roleFilter">Rolle</label> `);
-      $$renderer2.select({ id: "roleFilter", class: "select", value: roleFilter }, ($$renderer3) => {
-        $$renderer3.option({ value: "all" }, ($$renderer4) => {
-          $$renderer4.push(`Alle`);
-        });
-        $$renderer3.option({ value: "admin" }, ($$renderer4) => {
-          $$renderer4.push(`Admin`);
-        });
-        $$renderer3.option({ value: "materialwart" }, ($$renderer4) => {
-          $$renderer4.push(`Materialwart`);
-        });
-        $$renderer3.option({ value: "user" }, ($$renderer4) => {
-          $$renderer4.push(`Nutzer`);
-        });
-      });
-      $$renderer2.push(`</div> <div class="field"><label for="statusFilter">Status</label> `);
-      $$renderer2.select({ id: "statusFilter", class: "select", value: statusFilter }, ($$renderer3) => {
-        $$renderer3.option({ value: "all" }, ($$renderer4) => {
-          $$renderer4.push(`Alle`);
-        });
-        $$renderer3.option({ value: "pending" }, ($$renderer4) => {
-          $$renderer4.push(`Ausstehend`);
-        });
-        $$renderer3.option({ value: "approved" }, ($$renderer4) => {
-          $$renderer4.push(`Freigegeben`);
-        });
-        $$renderer3.option({ value: "rejected" }, ($$renderer4) => {
-          $$renderer4.push(`Abgelehnt`);
-        });
-      });
-      $$renderer2.push(`</div></div> <div class="field"><label for="userSelect">Benutzer</label> `);
-      $$renderer2.select({ id: "userSelect", class: "select", value: selectedUserId }, ($$renderer3) => {
-        if (users.length === 0) {
-          $$renderer3.push("<!--[-->");
-          $$renderer3.option({ value: "" }, ($$renderer4) => {
-            $$renderer4.push(`Keine Benutzer vorhanden`);
-          });
+        if (activeTab === "observability") {
+          $$renderer2.push("<!--[-->");
+          $$renderer2.push(`<div>`);
+          AdminObservability($$renderer2);
+          $$renderer2.push(`<!----></div>`);
         } else {
-          $$renderer3.push("<!--[!-->");
-          if (filteredUsers().length === 0) {
-            $$renderer3.push("<!--[-->");
-            $$renderer3.option({ value: "" }, ($$renderer4) => {
-              $$renderer4.push(`Keine Treffer fuer aktuellen Filter`);
-            });
+          $$renderer2.push("<!--[!-->");
+          if (activeTab === "users") {
+            $$renderer2.push("<!--[-->");
+            $$renderer2.push(`<div>`);
+            AdminUserManagement($$renderer2);
+            $$renderer2.push(`<!----></div>`);
           } else {
-            $$renderer3.push("<!--[!-->");
-            $$renderer3.push(`<!--[-->`);
-            const each_array = ensure_array_like(filteredUsers());
-            for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-              let user = each_array[$$index];
-              $$renderer3.option({ value: user.id }, ($$renderer4) => {
-                $$renderer4.push(`${escape_html(user.email)}`);
-              });
+            $$renderer2.push("<!--[!-->");
+            if (activeTab === "system-monitor") {
+              $$renderer2.push("<!--[-->");
+              $$renderer2.push(`<div>`);
+              AdminSystemMonitor($$renderer2);
+              $$renderer2.push(`<!----></div>`);
+            } else {
+              $$renderer2.push("<!--[!-->");
+              if (activeTab === "jobs") {
+                $$renderer2.push("<!--[-->");
+                $$renderer2.push(`<div>`);
+                AdminJobs($$renderer2);
+                $$renderer2.push(`<!----></div>`);
+              } else {
+                $$renderer2.push("<!--[!-->");
+                if (activeTab === "docker") {
+                  $$renderer2.push("<!--[-->");
+                  $$renderer2.push(`<div>`);
+                  AdminDocker($$renderer2);
+                  $$renderer2.push(`<!----></div>`);
+                } else {
+                  $$renderer2.push("<!--[!-->");
+                  if (activeTab === "websocket") {
+                    $$renderer2.push("<!--[-->");
+                    $$renderer2.push(`<div>`);
+                    AdminWebSocket($$renderer2);
+                    $$renderer2.push(`<!----></div>`);
+                  } else {
+                    $$renderer2.push("<!--[!-->");
+                    if (activeTab === "feature-flags") {
+                      $$renderer2.push("<!--[-->");
+                      $$renderer2.push(`<div>`);
+                      AdminFeatureFlags($$renderer2);
+                      $$renderer2.push(`<!----></div>`);
+                    } else {
+                      $$renderer2.push("<!--[!-->");
+                      if (activeTab === "database") {
+                        $$renderer2.push("<!--[-->");
+                        $$renderer2.push(`<div>`);
+                        AdminDatabaseHealth($$renderer2);
+                        $$renderer2.push(`<!----></div>`);
+                      } else {
+                        $$renderer2.push("<!--[!-->");
+                        if (activeTab === "audit-logs") {
+                          $$renderer2.push("<!--[-->");
+                          $$renderer2.push(`<div>`);
+                          AdminAuditLogs($$renderer2);
+                          $$renderer2.push(`<!----></div>`);
+                        } else {
+                          $$renderer2.push("<!--[!-->");
+                          if (activeTab === "log-stream") {
+                            $$renderer2.push("<!--[-->");
+                            $$renderer2.push(`<div>`);
+                            AdminLogStream($$renderer2);
+                            $$renderer2.push(`<!----></div>`);
+                          } else {
+                            $$renderer2.push("<!--[!-->");
+                            if (activeTab === "queue") {
+                              $$renderer2.push("<!--[-->");
+                              $$renderer2.push(`<div>`);
+                              AdminQueueMonitor($$renderer2);
+                              $$renderer2.push(`<!----></div>`);
+                            } else {
+                              $$renderer2.push("<!--[!-->");
+                              if (activeTab === "redis") {
+                                $$renderer2.push("<!--[-->");
+                                $$renderer2.push(`<div>`);
+                                AdminRedisMonitor($$renderer2);
+                                $$renderer2.push(`<!----></div>`);
+                              } else {
+                                $$renderer2.push("<!--[!-->");
+                                if (activeTab === "security") {
+                                  $$renderer2.push("<!--[-->");
+                                  $$renderer2.push(`<div>`);
+                                  AdminSecurityPanel($$renderer2);
+                                  $$renderer2.push(`<!----></div>`);
+                                } else {
+                                  $$renderer2.push("<!--[!-->");
+                                  if (activeTab === "errors") {
+                                    $$renderer2.push("<!--[-->");
+                                    $$renderer2.push(`<div>`);
+                                    AdminErrorTracking($$renderer2);
+                                    $$renderer2.push(`<!----></div>`);
+                                  } else {
+                                    $$renderer2.push("<!--[!-->");
+                                    if (activeTab === "api-heatmap") {
+                                      $$renderer2.push("<!--[-->");
+                                      $$renderer2.push(`<div>`);
+                                      AdminApiHeatmap($$renderer2);
+                                      $$renderer2.push(`<!----></div>`);
+                                    } else {
+                                      $$renderer2.push("<!--[!-->");
+                                    }
+                                    $$renderer2.push(`<!--]-->`);
+                                  }
+                                  $$renderer2.push(`<!--]-->`);
+                                }
+                                $$renderer2.push(`<!--]-->`);
+                              }
+                              $$renderer2.push(`<!--]-->`);
+                            }
+                            $$renderer2.push(`<!--]-->`);
+                          }
+                          $$renderer2.push(`<!--]-->`);
+                        }
+                        $$renderer2.push(`<!--]-->`);
+                      }
+                      $$renderer2.push(`<!--]-->`);
+                    }
+                    $$renderer2.push(`<!--]-->`);
+                  }
+                  $$renderer2.push(`<!--]-->`);
+                }
+                $$renderer2.push(`<!--]-->`);
+              }
+              $$renderer2.push(`<!--]-->`);
             }
-            $$renderer3.push(`<!--]-->`);
+            $$renderer2.push(`<!--]-->`);
           }
-          $$renderer3.push(`<!--]-->`);
-        }
-        $$renderer3.push(`<!--]-->`);
-      });
-      $$renderer2.push(`</div> `);
-      if (filteredUsers().length > 0) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<div class="admin-user-list svelte-1jef3w8"><!--[-->`);
-        const each_array_1 = ensure_array_like(filteredUsers().slice(0, 8));
-        for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
-          let user = each_array_1[$$index_1];
-          $$renderer2.push(`<button${attr_class(`list-row admin-user-list__item ${selectedUserId === user.id ? "is-active" : ""}`, "svelte-1jef3w8")} type="button"><div class="admin-user-list__meta svelte-1jef3w8">`);
-          Avatar($$renderer2, {
-            name: user.email,
-            avatarUrl: user.avatar_url ?? null,
-            size: 40
-          });
-          $$renderer2.push(`<!----> <div class="list-meta"><strong>${escape_html(user.email)}</strong> <span class="text-muted">${escape_html(user.role)}</span></div></div> <span${attr_class(clsx(statusBadgeClass(user.status)), "svelte-1jef3w8")}>${escape_html(statusLabel(user.status))}</span></button>`);
-        }
-        $$renderer2.push(`<!--]--></div>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> `);
-      if (userLoadError) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="status-banner error">${escape_html(userLoadError)}</p>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> `);
-      if (selectedUser()) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<div class="hairline-list"><div class="list-row"><div class="admin-selected-user svelte-1jef3w8">`);
-        Avatar($$renderer2, {
-          name: selectedUser()?.email || "User",
-          avatarUrl: selectedUser()?.avatar_url ?? null,
-          size: 96
-        });
-        $$renderer2.push(`<!----> <div class="list-meta"><strong>${escape_html(selectedUser()?.email)}</strong> <span class="text-muted">Erstellt am ${escape_html(formatDateTime(selectedUser()?.created_at))}</span></div></div> <span${attr_class(clsx(statusBadgeClass(selectedUser().status)), "svelte-1jef3w8")}>${escape_html(statusLabel(selectedUser().status))}</span></div> <div class="actions"><button class="btn btn-outline" type="button"${attr("disabled", userActionLoading, true)}>Freigeben</button> <button class="btn btn-outline" type="button"${attr("disabled", userActionLoading, true)}>Ablehnen</button> <button class="btn btn-outline" type="button"${attr("disabled", userActionLoading, true)}>Profilbild entfernen</button></div></div>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--></section> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Roles</h2> `);
-      if (selectedUser()) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<div class="field"><label for="userRole">Rolle</label> `);
-        $$renderer2.select({ id: "userRole", class: "select", value: userRoleDraft }, ($$renderer3) => {
-          $$renderer3.option({ value: "user" }, ($$renderer4) => {
-            $$renderer4.push(`Nutzer`);
-          });
-          $$renderer3.option({ value: "materialwart" }, ($$renderer4) => {
-            $$renderer4.push(`Materialwart`);
-          });
-          $$renderer3.option({ value: "admin" }, ($$renderer4) => {
-            $$renderer4.push(`Admin`);
-          });
-        });
-        $$renderer2.push(`</div> <div class="actions"><button class="btn btn-primary" type="button"${attr("disabled", userActionLoading, true)}>Rolle speichern</button> <button class="btn btn-outline" type="button"${attr("disabled", userActionLoading, true)}>Force Logout</button> <button class="btn btn-danger" type="button"${attr("disabled", userActionLoading, true)}>Konto loschen</button></div>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<p class="text-muted">Kein Benutzer ausgewahlt.</p>`);
-      }
-      $$renderer2.push(`<!--]--></section> <section id="push-rules" class="admin-console-section svelte-1jef3w8"><div class="section-head svelte-1jef3w8"><h2 class="section-title">Push</h2> <button class="btn btn-primary" type="button"${attr("disabled", rulesLoading, true)}>`);
-      {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> ${escape_html("Neue Regel")}</button></div> `);
-      if (customRules().length === 0) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="text-muted">Keine Push-Regeln vorhanden.</p>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<div class="admin-rule-list svelte-1jef3w8"><!--[-->`);
-        const each_array_2 = ensure_array_like(customRules());
-        for (let $$index_2 = 0, $$length = each_array_2.length; $$index_2 < $$length; $$index_2++) {
-          let rule = each_array_2[$$index_2];
-          PushRuleCard($$renderer2, {
-            rule,
-            users,
-            onSave: saveRule,
-            onDelete: deleteRule,
-            onSend: sendRuleNow
-          });
-        }
-        $$renderer2.push(`<!--]--></div>`);
-      }
-      $$renderer2.push(`<!--]--></section> <section class="admin-console-section svelte-1jef3w8"><div class="section-head svelte-1jef3w8"><h2 class="section-title">Updates</h2> <div class="actions"><button class="btn btn-outline" type="button"${attr("disabled", updatesLoading, true)}>${escape_html("Prufen")}</button> <button class="btn btn-primary" type="button"${attr("disabled", updateActionLoading, true)}>${escape_html("Update starten")}</button></div></div> <div class="hairline-list"><div class="list-row"><div class="list-meta"><strong>Aktuelle Version</strong></div> <span class="badge badge-secondary">${escape_html(versionInfo?.version ?? "Unbekannt")}</span></div> <div class="list-row"><div class="list-meta"><strong>Letztes Update</strong></div> <span class="badge badge-secondary">${escape_html(formatDateTime(versionInfo?.updated_at))}</span></div></div> <div class="admin-changelog svelte-1jef3w8">`);
-      if (changelog.length === 0) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="text-muted">Kein Changelog vorhanden.</p>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<!--[-->`);
-        const each_array_3 = ensure_array_like(changelog);
-        for (let $$index_3 = 0, $$length = each_array_3.length; $$index_3 < $$length; $$index_3++) {
-          let entry = each_array_3[$$index_3];
-          $$renderer2.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(entry.version)}</strong> <span class="text-muted">${escape_html(formatDateTime(entry.updated_at))}</span></div> <span class="badge badge-secondary">${escape_html(entry.commit)}</span></div>`);
+          $$renderer2.push(`<!--]-->`);
         }
         $$renderer2.push(`<!--]-->`);
       }
-      $$renderer2.push(`<!--]--></div></section> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Backup</h2> <div class="actions"><button class="btn btn-outline" type="button">Backup erstellen</button> <button class="btn btn-outline" type="button">Backup herunterladen</button> <button class="btn btn-danger" type="button">Backup wiederherstellen</button></div></section> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Logs</h2> <div class="admin-log-list svelte-1jef3w8">`);
-      if (adminLogs.length === 0) {
-        $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<p class="text-muted">Keine Eintrage.</p>`);
-      } else {
-        $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<!--[-->`);
-        const each_array_4 = ensure_array_like(adminLogs);
-        for (let $$index_4 = 0, $$length = each_array_4.length; $$index_4 < $$length; $$index_4++) {
-          let entry = each_array_4[$$index_4];
-          $$renderer2.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(entry.message)}</strong> <span class="text-muted">${escape_html(formatDateTime(entry.ts))}</span></div> <span${attr_class(clsx(entry.level === "error" ? "badge badge-danger" : "badge badge-secondary"))}>${escape_html(entry.level)}</span></div>`);
-        }
-        $$renderer2.push(`<!--]-->`);
-      }
-      $$renderer2.push(`<!--]--></div></section> <section class="admin-console-section svelte-1jef3w8"><h2 class="section-title">Feature Flags</h2> <div class="hairline-list"><!--[-->`);
-      const each_array_5 = ensure_array_like(settings.filter((item) => item.key === "chat_enabled" || item.key === "nfc_enabled"));
-      for (let $$index_5 = 0, $$length = each_array_5.length; $$index_5 < $$length; $$index_5++) {
-        let item = each_array_5[$$index_5];
-        $$renderer2.push(`<div class="toggle-row"><div class="list-meta"><strong>${escape_html(item.key === "chat_enabled" ? "Chat aktivieren" : "NFC aktivieren")}</strong></div> <label class="toggle"><input type="checkbox"${attr("checked", item.value === "true", true)}/></label></div>`);
-      }
-      $$renderer2.push(`<!--]--></div> <div class="section-divider svelte-1jef3w8"></div> <h3 class="section-title section-title-small svelte-1jef3w8">Push Ruhezeiten</h3> <div class="split-grid"><div class="field"><label for="quietStart">Beginn</label> <input id="quietStart" class="input" type="time"${attr("value", quietStart)}/></div> <div class="field"><label for="quietEnd">Ende</label> <input id="quietEnd" class="input" type="time"${attr("value", quietEnd)}/></div></div> <div class="actions"><button class="btn btn-primary" type="button"${attr("disabled", quietHoursSaving, true)}>`);
-      {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> ${escape_html("Speichern")}</button></div> `);
-      {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--></section>`);
+      $$renderer2.push(`<!--]--></section></div>`);
     }
-    $$renderer2.push(`<!--]--></div> `);
-    if (deleteModalOpen && selectedUser()) {
-      $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<div class="admin-modal svelte-1jef3w8" role="dialog" aria-modal="true" aria-label="Konto loschen"><button type="button" class="admin-modal__backdrop svelte-1jef3w8" aria-label="Schliessen"></button> <div class="admin-modal__panel svelte-1jef3w8"><h2 class="section-title">Konto loschen</h2> <p class="text-muted">Bestatige mit der E-Mail: <strong>${escape_html(selectedUser().email)}</strong></p> <input class="input"${attr("value", deleteConfirmText)} placeholder="E-Mail eingeben"/> <div class="actions"><button class="btn btn-outline" type="button"${attr("disabled", deleteLoading, true)}>Abbrechen</button> <button class="btn btn-danger" type="button"${attr("disabled", deleteLoading, true)}>`);
-      {
-        $$renderer2.push("<!--[!-->");
-      }
-      $$renderer2.push(`<!--]--> ${escape_html("Endgultig loschen")}</button></div></div></div>`);
-    } else {
-      $$renderer2.push("<!--[!-->");
-    }
-    $$renderer2.push(`<!--]-->`);
+    $$renderer2.push(`<!--]--></div>`);
     if ($$store_subs) unsubscribe_stores($$store_subs);
   });
 }

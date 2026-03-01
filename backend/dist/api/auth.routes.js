@@ -9,6 +9,7 @@ import { requireAuth } from "../utils/guards.js";
 import { createRateLimit } from "../utils/rate-limit.js";
 import { parseOrReply, passwordSchema, usernameSchema, uuidParamSchema } from "../utils/validation.js";
 import { AVATAR_MAX_BYTES, deleteUserAvatar, getAvatarFilePathForUser, getAvatarPublicUrl, isAllowedAvatarMime, storeUserAvatar } from "../services/avatar.service.js";
+import { writeAuditLog } from "../services/audit-log.service.js";
 const registerSchema = z
     .object({
     username: usernameSchema,
@@ -184,6 +185,15 @@ export const authRoutes = async (app) => {
             const normalized = username.trim().toLowerCase();
             const attempt = consumeLoginAttempt(request.ip, normalized);
             if (attempt.blocked) {
+                writeAuditLog({
+                    actorUserId: null,
+                    action: "auth.login.rate-limited",
+                    entityType: "auth",
+                    entityId: normalized,
+                    ipAddress: request.ip,
+                    userAgent: String(request.headers["user-agent"] ?? ""),
+                    metadata: { retry_after_seconds: attempt.retryAfterSec }
+                });
                 reply.header("Retry-After", String(attempt.retryAfterSec));
                 return reply.code(429).send({ success: false, message: "Zu viele Login-Versuche. Bitte spaeter erneut versuchen." });
             }
@@ -191,16 +201,48 @@ export const authRoutes = async (app) => {
                 .prepare("SELECT id, email, password_hash, role, status, avatar_updated_at FROM users WHERE lower(email) = ?")
                 .get(normalized);
             if (!user) {
+                writeAuditLog({
+                    actorUserId: null,
+                    action: "auth.login.failed",
+                    entityType: "auth",
+                    entityId: normalized,
+                    ipAddress: request.ip,
+                    userAgent: String(request.headers["user-agent"] ?? "")
+                });
                 return reply.code(401).send({ success: false, message: "Ungultige Anmeldedaten." });
             }
             const ok = await verifyPassword(password, user.password_hash);
             if (!ok) {
+                writeAuditLog({
+                    actorUserId: user.id,
+                    action: "auth.login.failed",
+                    entityType: "auth",
+                    entityId: user.id,
+                    ipAddress: request.ip,
+                    userAgent: String(request.headers["user-agent"] ?? "")
+                });
                 return reply.code(401).send({ success: false, message: "Ungultige Anmeldedaten." });
             }
             if (user.status === "pending") {
+                writeAuditLog({
+                    actorUserId: user.id,
+                    action: "auth.login.blocked.pending",
+                    entityType: "auth",
+                    entityId: user.id,
+                    ipAddress: request.ip,
+                    userAgent: String(request.headers["user-agent"] ?? "")
+                });
                 return reply.code(403).send({ success: false, message: "Dein Account wurde noch nicht freigegeben." });
             }
             if (user.status === "rejected") {
+                writeAuditLog({
+                    actorUserId: user.id,
+                    action: "auth.login.blocked.rejected",
+                    entityType: "auth",
+                    entityId: user.id,
+                    ipAddress: request.ip,
+                    userAgent: String(request.headers["user-agent"] ?? "")
+                });
                 return reply
                     .code(403)
                     .send({ success: false, message: "Dein Account wurde abgelehnt. Bitte kontaktiere einen Admin." });
@@ -209,6 +251,14 @@ export const authRoutes = async (app) => {
             const token = issueAccessToken(app, { id: user.id, username: user.email, role, status: "approved" });
             const refresh = createRefreshTokenRecord(user.id);
             clearLoginAttempt(request.ip, normalized);
+            writeAuditLog({
+                actorUserId: user.id,
+                action: "auth.login.success",
+                entityType: "auth",
+                entityId: user.id,
+                ipAddress: request.ip,
+                userAgent: String(request.headers["user-agent"] ?? "")
+            });
             reply.header("Set-Cookie", [serializeAuthCookie(token), serializeRefreshCookie(refresh.token)]);
             return reply.send({
                 success: true,

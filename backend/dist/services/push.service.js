@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 import { settings } from "../config/settings.js";
 import { logger } from "../utils/logger.js";
+import { createNotification } from "./notification.service.js";
 const ensureVapid = () => {
     if (!settings.vapidPublicKey || !settings.vapidPrivateKey) {
         logger.warn("VAPID keys missing; skipping push send");
@@ -33,6 +34,20 @@ export const deleteSubscription = (userId, endpoint) => {
     return result.changes > 0;
 };
 export const sendToUser = async (userId, payload) => {
+    const typedPayload = payload;
+    const notificationTitle = String(typedPayload?.title ?? "Benachrichtigung").trim() || "Benachrichtigung";
+    const notificationBody = String(typedPayload?.body ?? "").trim();
+    createNotification({
+        userId,
+        type: "push",
+        title: notificationTitle,
+        message: notificationBody || "Neue Benachrichtigung",
+        metadata: {
+            source: "push",
+            push_type: String(typedPayload?.type ?? "generic")
+        },
+        emitRealtime: true
+    });
     if (!ensureVapid())
         return;
     const subscriptions = db

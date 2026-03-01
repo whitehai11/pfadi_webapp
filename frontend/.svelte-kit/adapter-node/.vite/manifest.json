@@ -55,20 +55,21 @@
       "_toast.js"
     ]
   },
-  "_app-settings.js": {
-    "file": "chunks/app-settings.js",
-    "name": "app-settings",
-    "imports": [
-      "_context.js",
-      "_index.js",
-      "_toast.js"
-    ]
-  },
   "_auth.js": {
     "file": "chunks/auth.js",
     "name": "auth",
     "imports": [
       "_index.js"
+    ]
+  },
+  "_client.js": {
+    "file": "chunks/client.js",
+    "name": "client",
+    "imports": [
+      "_exports.js",
+      "_utils.js",
+      "_index.js",
+      "_state.svelte.js"
     ]
   },
   "_context.js": {
@@ -90,6 +91,13 @@
   "_false.js": {
     "file": "chunks/false.js",
     "name": "false"
+  },
+  "_index-server.js": {
+    "file": "chunks/index-server.js",
+    "name": "index-server",
+    "imports": [
+      "_context.js"
+    ]
   },
   "_index.js": {
     "file": "chunks/index.js",
@@ -115,13 +123,6 @@
       "_index2.js",
       "_context.js",
       "_environment.js"
-    ]
-  },
-  "_overlay.js": {
-    "file": "chunks/overlay.js",
-    "name": "overlay",
-    "imports": [
-      "_index.js"
     ]
   },
   "_shared.js": {
@@ -173,6 +174,13 @@
       "_false.js"
     ]
   },
+  "_websocket.js": {
+    "file": "chunks/websocket.js",
+    "name": "websocket",
+    "imports": [
+      "_index.js"
+    ]
+  },
   "node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
     "file": "remote-entry.js",
     "name": "remote-entry",
@@ -192,9 +200,7 @@
     "imports": [
       "_escaping.js",
       "_state.svelte.js",
-      "_exports.js",
-      "_utils.js",
-      "_index.js",
+      "_client.js",
       "_context.js"
     ]
   },
@@ -223,15 +229,15 @@
       "_stores.js",
       "_utils2.js",
       "_Logo.js",
+      "_index.js",
       "_toast.js",
-      "_overlay.js",
+      "_websocket.js",
       "_escaping.js",
       "_Avatar.js",
-      "_app-settings.js",
+      "_index-server.js",
       "_exports.js",
       "_utils.js",
       "_state.svelte.js",
-      "_index.js",
       "_api.js",
       "_auth.js",
       "_theme.js"
@@ -262,18 +268,19 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_index.js",
-      "_Avatar.js",
-      "_SegmentedControl.js",
-      "_utils2.js",
-      "_escaping.js",
-      "_api.js",
+      "_index-server.js",
+      "_client.js",
+      "_stores.js",
+      "_Card.js",
       "_auth.js",
-      "_overlay.js",
-      "_toast.js"
+      "_toast.js",
+      "_escaping.js",
+      "_utils2.js",
+      "_api.js",
+      "_index.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.CTb5hpK7.css"
+      "_app/immutable/assets/_page.BCfRgQT_.css"
     ]
   },
   "src/routes/calendar/+page.svelte": {
@@ -297,12 +304,17 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_app-settings.js",
+      "_index-server.js",
       "_Card.js",
       "_Avatar.js",
       "_auth.js",
       "_toast.js",
+      "_index.js",
+      "_websocket.js",
       "_escaping.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.CTTJiaiQ.css"
     ]
   },
   "src/routes/inventory/+page.svelte": {

@@ -1,30 +1,37 @@
 <script lang="ts">
   import Icon from "$lib/components/Icon.svelte";
-  import { clearToasts, markAllToastsAsRead, markToastAsRead, toasts, unreadToastCount } from "$lib/toast";
+  import {
+    markAllNotificationsAsRead,
+    markNotificationAsRead,
+    notificationsStore,
+    unreadNotificationCount
+  } from "$lib/stores/notifications";
   import { activeOverlayId, closeOverlay, overlayOutside, toggleOverlay } from "$lib/overlay";
 
   const OVERLAY_ID = "notification-menu";
   let open = false;
   $: open = $activeOverlayId === OVERLAY_ID;
 
-  const formatTime = (createdAt: number) =>
+  const formatTime = (createdAt: string) =>
     new Intl.DateTimeFormat("de-DE", {
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit"
     }).format(new Date(createdAt));
 </script>
 
 <div class="notification-menu" use:overlayOutside={{ id: OVERLAY_ID, enabled: open }}>
   <button
-    class={`icon-button subtle-button notification-trigger ${$unreadToastCount > 0 ? "has-unread" : ""}`}
+    class={`icon-button subtle-button notification-trigger ${$unreadNotificationCount > 0 ? "has-unread" : ""}`}
     type="button"
     aria-expanded={open}
     aria-label="Benachrichtigungen"
     on:click={() => toggleOverlay(OVERLAY_ID)}
   >
     <Icon name="bell" size={16} />
-    {#if $unreadToastCount > 0}
-      <span class="notification-badge">{$unreadToastCount}</span>
+    {#if $unreadNotificationCount > 0}
+      <span class="notification-badge">{$unreadNotificationCount}</span>
     {/if}
   </button>
 
@@ -36,35 +43,41 @@
       <header class="notification-panel__header">
         <div class="notification-panel__title">
           <strong>Benachrichtigungen</strong>
-          {#if $unreadToastCount > 0}
-            <span class="badge badge-info">{$unreadToastCount} neu</span>
+          {#if $unreadNotificationCount > 0}
+            <span class="badge badge-info">{$unreadNotificationCount} neu</span>
           {/if}
         </div>
         <div class="notification-panel__actions">
-          <button class="btn btn-outline" type="button" on:click={markAllToastsAsRead}>Alle gelesen</button>
-          <button class="btn btn-outline" type="button" on:click={clearToasts}>Leeren</button>
+          <button class="btn btn-outline" type="button" on:click={() => markAllNotificationsAsRead()}>Alle gelesen</button>
         </div>
       </header>
 
-      {#if $toasts.length === 0}
+      {#if $notificationsStore.loading}
+        <div class="notification-empty">
+          <p class="text-muted">Lade Benachrichtigungen...</p>
+        </div>
+      {:else if $notificationsStore.items.length === 0}
         <div class="notification-empty">
           <p class="text-muted">Keine Benachrichtigungen vorhanden.</p>
         </div>
       {:else}
         <div class="notification-list">
-          {#each [...$toasts].reverse() as item (item.id)}
+          {#each $notificationsStore.items as item (item.id)}
             <button
-              class={`notification-item ${item.read ? "is-read" : "is-unread"}`}
+              class={`notification-item ${item.is_read ? "is-read" : "is-unread"}`}
               type="button"
               on:click={() => {
-                markToastAsRead(item.id);
+                if (!item.is_read) {
+                  void markNotificationAsRead(item.id);
+                }
               }}
             >
               <div class="notification-item__copy">
-                <strong>{item.message}</strong>
-                <small>{formatTime(item.createdAt)}</small>
+                <strong>{item.title}</strong>
+                <small>{item.message}</small>
+                <small>{formatTime(item.created_at)}</small>
               </div>
-              {#if !item.read}
+              {#if !item.is_read}
                 <span class="notification-dot" aria-hidden="true"></span>
               {/if}
             </button>

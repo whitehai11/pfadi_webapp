@@ -28,6 +28,7 @@ import { adminRoutes } from "./api/admin.routes.js";
 import { authRoutes } from "./api/auth.routes.js";
 import { settingsRoutes } from "./api/settings.routes.js";
 import { chatRoutes } from "./api/chat.routes.js";
+import { notificationRoutes } from "./api/notification.routes.js";
 import { systemRoutes } from "./api/system.routes.js";
 import { generateIcs, getIcsPath } from "./services/ics.service.js";
 import { scheduleCalendarRefresh } from "./cron/calendar-refresh.cron.js";
@@ -37,6 +38,11 @@ import { scheduleCustomPushRules } from "./cron/push-rules.cron.js";
 import { ensureDefaultChatRoom } from "./services/chat.service.js";
 import { createRateLimit } from "./utils/rate-limit.js";
 import { logger } from "./utils/logger.js";
+import { setupChatGateway } from "./ws/chat.gateway.js";
+import { setupNotificationGateway } from "./ws/notification.gateway.js";
+import { setupAdminGateway } from "./ws/admin/index.js";
+import { recordApiMetric, recordSystemError } from "./services/admin-observability.service.js";
+import { recordRequestMetric, startMetricsSamplers } from "./services/metrics-registry.service.js";
 
 const appVersion = String(process.env.APP_VERSION ?? process.env.npm_package_version ?? "dev");
 const appCommit = String(process.env.GIT_COMMIT ?? process.env.VITE_GIT_COMMIT ?? "dev");
@@ -239,6 +245,32 @@ app.addHook("preHandler", async (request, reply) => {
   await globalApiRateLimit(request, reply);
 });
 
+app.addHook("onResponse", async (request, reply) => {
+  if (!isApiRequest(request)) return;
+  try {
+    const endpoint = request.url.split("?")[0] || "/";
+    const responseTimeMs = Number(reply.getResponseTime?.() ?? 0);
+    recordApiMetric({
+      endpoint,
+      method: request.method,
+      responseTimeMs: Number.isFinite(responseTimeMs) ? responseTimeMs : 0,
+      statusCode: reply.statusCode
+    });
+    const user = request.user as { id?: string } | undefined;
+    recordRequestMetric({
+      route: endpoint,
+      method: request.method,
+      statusCode: reply.statusCode,
+      durationMs: Number.isFinite(responseTimeMs) ? responseTimeMs : 0,
+      requestId: String(request.id ?? ""),
+      userId: typeof user?.id === "string" ? user.id : null,
+      ip: request.ip
+    });
+  } catch {
+    // best effort only
+  }
+});
+
 app.addHook("preSerialization", async (request, reply, payload) => normalizeApiResponse(request, reply, payload));
 
 app.setErrorHandler((error, request, reply) => {
@@ -256,6 +288,22 @@ app.setErrorHandler((error, request, reply) => {
       : statusCode >= 500
         ? "Interner Serverfehler."
         : error.message || "Request failed";
+
+  if (statusCode >= 500) {
+    try {
+      const user = request.user as { id?: string } | undefined;
+      const entry = recordSystemError({
+        message: error.message || "Unhandled request error",
+        stack: error.stack ?? null,
+        route: request.url,
+        userId: typeof user?.id === "string" ? user.id : null,
+        severity: "error"
+      });
+      void entry;
+    } catch {
+      // best effort only
+    }
+  }
 
   reply.code(statusCode).send({ success: false, message });
 });
@@ -430,7 +478,11 @@ app.register(pushRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(settingsRoutes, { prefix: "/api" });
 app.register(chatRoutes, { prefix: "/api" });
+app.register(notificationRoutes, { prefix: "/api" });
 app.register(systemRoutes, { prefix: "/api" });
+const chatGateway = setupChatGateway(app);
+const notificationGateway = setupNotificationGateway(app);
+const adminMonitorGateway = setupAdminGateway(app);
 
 app.get("/calendar.ics", async (request, reply) => {
   const icsPath = getIcsPath();
@@ -468,6 +520,30 @@ const gracefulShutdown = async (signal: string, exitCode = 0) => {
         });
       }
     }
+    try {
+      chatGateway.close();
+    } catch (error) {
+      logger.warn("Failed to stop chat gateway", {
+        signal,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+    try {
+      notificationGateway.close();
+    } catch (error) {
+      logger.warn("Failed to stop notification gateway", {
+        signal,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+    try {
+      adminMonitorGateway.close();
+    } catch (error) {
+      logger.warn("Failed to stop admin monitor gateway", {
+        signal,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
 
     await app.close();
     db.close();
@@ -491,6 +567,7 @@ const start = async () => {
     scheduledTasks.push(scheduleReminders());
     scheduledTasks.push(schedulePacklistChecks());
     scheduledTasks.push(scheduleCustomPushRules());
+    scheduledTasks.push(startMetricsSamplers());
   } catch (error) {
     logger.fatal("Startup initialization failed", {
       error: error instanceof Error ? error.message : String(error)
@@ -516,11 +593,33 @@ process.on("unhandledRejection", (reason) => {
   logger.error("Unhandled promise rejection", {
     reason: reason instanceof Error ? reason.message : String(reason)
   });
+  try {
+    const entry = recordSystemError({
+      message: reason instanceof Error ? reason.message : "Unhandled promise rejection",
+      stack: reason instanceof Error ? reason.stack ?? null : null,
+      route: "process:unhandledRejection",
+      severity: "fatal"
+    });
+    void entry;
+  } catch {
+    // ignore
+  }
   void gracefulShutdown("unhandledRejection", 1);
 });
 
 process.on("uncaughtException", (error) => {
   logger.fatal("Uncaught exception", { error: error.message });
+  try {
+    const entry = recordSystemError({
+      message: error.message,
+      stack: error.stack ?? null,
+      route: "process:uncaughtException",
+      severity: "fatal"
+    });
+    void entry;
+  } catch {
+    // ignore
+  }
   void gracefulShutdown("uncaughtException", 1);
 });
 

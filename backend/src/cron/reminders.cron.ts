@@ -3,6 +3,7 @@ import cron from "node-cron";
 import { db } from "../db/database.js";
 import { getRules, listUsersForRule, sendRuleToUsers } from "../services/push-rules.service.js";
 import { logger } from "../utils/logger.js";
+import { markJobFinish, markJobStart } from "../services/admin-monitor.service.js";
 
 const listUsers = () =>
   db.prepare("SELECT id, email as username, role FROM users WHERE status = 'approved'").all() as {
@@ -11,13 +12,12 @@ const listUsers = () =>
     role: string;
   }[];
 
-export const scheduleReminders = () => {
-  return cron.schedule("*/30 * * * *", async () => {
-    logger.debug("Cron heartbeat", { job: "reminders", ts: new Date().toISOString() });
-    try {
-      const now = new Date();
-      const users = listUsers();
-      const totalUsers = users.length;
+export const runRemindersJob = async () => {
+  markJobStart("reminders");
+  try {
+    const now = new Date();
+    const users = listUsers();
+    const totalUsers = users.length;
 
       // Termin-Erinnerungen
       const reminderRules = getRules("event-reminder");
@@ -166,6 +166,18 @@ export const scheduleReminders = () => {
         const targets = listUsersForRule(rule);
         await sendRuleToUsers(rule, targets, { type: "weekly-admin", event: null });
       }
+    markJobFinish("reminders");
+  } catch (error) {
+    markJobFinish("reminders", error);
+    throw error;
+  }
+};
+
+export const scheduleReminders = () => {
+  return cron.schedule("*/30 * * * *", async () => {
+    logger.debug("Cron heartbeat", { job: "reminders", ts: new Date().toISOString() });
+    try {
+      await runRemindersJob();
     } catch (error) {
       logger.error("Reminder cron tick failed", {
         job: "reminders",

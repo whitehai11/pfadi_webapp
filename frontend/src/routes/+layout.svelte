@@ -21,6 +21,7 @@
   import { registerPush } from "$lib/push";
   import { appliedTheme, initTheme, toggleTheme } from "$lib/theme";
   import { activeOverlayId, closeOverlay, toggleOverlay } from "$lib/overlay";
+  import { startNotificationsRealtime, stopNotificationsRealtime } from "$lib/stores/notifications";
   import "$lib/styles/app.css";
   import { onDestroy, onMount } from "svelte";
   import { get } from "svelte/store";
@@ -199,6 +200,7 @@
     const init = async () => {
       initTheme();
       restoreSession();
+      startNotificationsRealtime();
       if (get(session)) {
         try {
           const profile = await apiFetch<{ username: string; role: "admin" | "user" | "materialwart"; avatar_url?: string | null }>(
@@ -233,12 +235,14 @@
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("keydown", handleKeyDown);
       stopVersionPolling();
+      stopNotificationsRealtime();
     };
   });
 
   onDestroy(() => {
     stopVersionPolling();
     stopTokenRefresh();
+    stopNotificationsRealtime();
   });
 
   $: if (!get(session)) {

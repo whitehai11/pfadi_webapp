@@ -2,17 +2,17 @@ import { a as attr, b as bind_props, s as store_get, c as attr_class, e as ensur
 import { p as page } from "../../chunks/stores.js";
 import { Z as fallback } from "../../chunks/utils2.js";
 import { L as Logo } from "../../chunks/Logo.js";
-import { u as unreadToastCount, t as toasts } from "../../chunks/toast.js";
-import { a as activeOverlayId, t as toggleOverlay, c as closeOverlay } from "../../chunks/overlay.js";
+import { d as derived, w as writable, g as get } from "../../chunks/index.js";
+import { t as toasts } from "../../chunks/toast.js";
+import { c as createReconnectingWebSocketClient } from "../../chunks/websocket.js";
 import { e as escape_html } from "../../chunks/escaping.js";
 import { A as Avatar } from "../../chunks/Avatar.js";
-import { o as onDestroy, t as tick, r as resetAppSettings, a as appSettings } from "../../chunks/app-settings.js";
+import { o as onDestroy, t as tick } from "../../chunks/index-server.js";
 import "@sveltejs/kit/internal";
 import "../../chunks/exports.js";
 import "../../chunks/utils.js";
 import "@sveltejs/kit/internal/server";
 import "../../chunks/state.svelte.js";
-import { w as writable, g as get } from "../../chunks/index.js";
 import { a as apiFetch } from "../../chunks/api.js";
 import { r as roleLabel, s as setToken, c as clearToken, a as session } from "../../chunks/auth.js";
 import { t as toggleTheme, a as appliedTheme } from "../../chunks/theme.js";
@@ -128,19 +128,67 @@ function Icon($$renderer, $$props) {
   $$renderer.push(`<!--]--></svg>`);
   bind_props($$props, { name, size });
 }
+const initialState$1 = {
+  items: [],
+  unreadCount: 0,
+  loading: false,
+  error: "",
+  socketState: "idle"
+};
+const notificationState = writable(initialState$1);
+let sessionUnsub = null;
+let wsStateUnsub = null;
+const wsClient = createReconnectingWebSocketClient({});
+const resetState = () => {
+  notificationState.set(initialState$1);
+};
+const stopNotificationsRealtime = () => {
+  wsClient.disconnect();
+  sessionUnsub?.();
+  wsStateUnsub?.();
+  sessionUnsub = null;
+  wsStateUnsub = null;
+  resetState();
+};
+const notificationsStore = {
+  subscribe: notificationState.subscribe
+};
+const unreadNotificationCount = derived(notificationsStore, ($state) => $state.unreadCount);
+const overlayState = writable(null);
+const activeOverlayId = {
+  subscribe: overlayState.subscribe
+};
+const closeOverlay = (id) => {
+  {
+    overlayState.set(null);
+    return;
+  }
+};
+const toggleOverlay = (id) => {
+  if (get(overlayState) === id) {
+    overlayState.set(null);
+    return;
+  }
+  overlayState.set(id);
+};
 function NotificationMenu($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
     const OVERLAY_ID = "notification-menu";
     let open = false;
-    const formatTime = (createdAt) => new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(new Date(createdAt));
+    const formatTime = (createdAt) => new Intl.DateTimeFormat("de-DE", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit"
+    }).format(new Date(createdAt));
     open = store_get($$store_subs ??= {}, "$activeOverlayId", activeOverlayId) === OVERLAY_ID;
-    $$renderer2.push(`<div class="notification-menu"><button${attr_class(`icon-button subtle-button notification-trigger ${store_get($$store_subs ??= {}, "$unreadToastCount", unreadToastCount) > 0 ? "has-unread" : ""}`)} type="button"${attr("aria-expanded", open)} aria-label="Benachrichtigungen">`);
+    $$renderer2.push(`<div class="notification-menu"><button${attr_class(`icon-button subtle-button notification-trigger ${store_get($$store_subs ??= {}, "$unreadNotificationCount", unreadNotificationCount) > 0 ? "has-unread" : ""}`)} type="button"${attr("aria-expanded", open)} aria-label="Benachrichtigungen">`);
     Icon($$renderer2, { name: "bell", size: 16 });
     $$renderer2.push(`<!----> `);
-    if (store_get($$store_subs ??= {}, "$unreadToastCount", unreadToastCount) > 0) {
+    if (store_get($$store_subs ??= {}, "$unreadNotificationCount", unreadNotificationCount) > 0) {
       $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<span class="notification-badge">${escape_html(store_get($$store_subs ??= {}, "$unreadToastCount", unreadToastCount))}</span>`);
+      $$renderer2.push(`<span class="notification-badge">${escape_html(store_get($$store_subs ??= {}, "$unreadNotificationCount", unreadNotificationCount))}</span>`);
     } else {
       $$renderer2.push("<!--[!-->");
     }
@@ -148,32 +196,39 @@ function NotificationMenu($$renderer, $$props) {
     if (open) {
       $$renderer2.push("<!--[-->");
       $$renderer2.push(`<button class="notification-backdrop" type="button" aria-label="Schließen"></button> <div class="notification-panel" role="dialog" aria-label="Benachrichtigungen"><div class="notification-panel__handle" aria-hidden="true"></div> <header class="notification-panel__header"><div class="notification-panel__title"><strong>Benachrichtigungen</strong> `);
-      if (store_get($$store_subs ??= {}, "$unreadToastCount", unreadToastCount) > 0) {
+      if (store_get($$store_subs ??= {}, "$unreadNotificationCount", unreadNotificationCount) > 0) {
         $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<span class="badge badge-info">${escape_html(store_get($$store_subs ??= {}, "$unreadToastCount", unreadToastCount))} neu</span>`);
+        $$renderer2.push(`<span class="badge badge-info">${escape_html(store_get($$store_subs ??= {}, "$unreadNotificationCount", unreadNotificationCount))} neu</span>`);
       } else {
         $$renderer2.push("<!--[!-->");
       }
-      $$renderer2.push(`<!--]--></div> <div class="notification-panel__actions"><button class="btn btn-outline" type="button">Alle gelesen</button> <button class="btn btn-outline" type="button">Leeren</button></div></header> `);
-      if (store_get($$store_subs ??= {}, "$toasts", toasts).length === 0) {
+      $$renderer2.push(`<!--]--></div> <div class="notification-panel__actions"><button class="btn btn-outline" type="button">Alle gelesen</button></div></header> `);
+      if (store_get($$store_subs ??= {}, "$notificationsStore", notificationsStore).loading) {
         $$renderer2.push("<!--[-->");
-        $$renderer2.push(`<div class="notification-empty"><p class="text-muted">Keine Benachrichtigungen vorhanden.</p></div>`);
+        $$renderer2.push(`<div class="notification-empty"><p class="text-muted">Lade Benachrichtigungen...</p></div>`);
       } else {
         $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<div class="notification-list"><!--[-->`);
-        const each_array = ensure_array_like([...store_get($$store_subs ??= {}, "$toasts", toasts)].reverse());
-        for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-          let item = each_array[$$index];
-          $$renderer2.push(`<button${attr_class(`notification-item ${item.read ? "is-read" : "is-unread"}`)} type="button"><div class="notification-item__copy"><strong>${escape_html(item.message)}</strong> <small>${escape_html(formatTime(item.createdAt))}</small></div> `);
-          if (!item.read) {
-            $$renderer2.push("<!--[-->");
-            $$renderer2.push(`<span class="notification-dot" aria-hidden="true"></span>`);
-          } else {
-            $$renderer2.push("<!--[!-->");
+        if (store_get($$store_subs ??= {}, "$notificationsStore", notificationsStore).items.length === 0) {
+          $$renderer2.push("<!--[-->");
+          $$renderer2.push(`<div class="notification-empty"><p class="text-muted">Keine Benachrichtigungen vorhanden.</p></div>`);
+        } else {
+          $$renderer2.push("<!--[!-->");
+          $$renderer2.push(`<div class="notification-list"><!--[-->`);
+          const each_array = ensure_array_like(store_get($$store_subs ??= {}, "$notificationsStore", notificationsStore).items);
+          for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
+            let item = each_array[$$index];
+            $$renderer2.push(`<button${attr_class(`notification-item ${item.is_read ? "is-read" : "is-unread"}`)} type="button"><div class="notification-item__copy"><strong>${escape_html(item.title)}</strong> <small>${escape_html(item.message)}</small> <small>${escape_html(formatTime(item.created_at))}</small></div> `);
+            if (!item.is_read) {
+              $$renderer2.push("<!--[-->");
+              $$renderer2.push(`<span class="notification-dot" aria-hidden="true"></span>`);
+            } else {
+              $$renderer2.push("<!--[!-->");
+            }
+            $$renderer2.push(`<!--]--></button>`);
           }
-          $$renderer2.push(`<!--]--></button>`);
+          $$renderer2.push(`<!--]--></div>`);
         }
-        $$renderer2.push(`<!--]--></div>`);
+        $$renderer2.push(`<!--]-->`);
       }
       $$renderer2.push(`<!--]--></div>`);
     } else {
@@ -547,6 +602,14 @@ function UpdateBanner($$renderer, $$props) {
   $$renderer.push(`<!--]-->`);
   bind_props($$props, { visible, version, onReload, onDismiss });
 }
+const defaultState = {
+  chatEnabled: false,
+  nfcEnabled: false
+};
+const appSettings = writable(defaultState);
+const resetAppSettings = () => {
+  appSettings.set(defaultState);
+};
 function _layout($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
@@ -643,6 +706,7 @@ function _layout($$renderer, $$props) {
     onDestroy(() => {
       stopVersionPolling();
       stopTokenRefresh();
+      stopNotificationsRealtime();
     });
     if (!get(session)) {
       closeOverlay();

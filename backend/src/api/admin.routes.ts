@@ -1,5 +1,5 @@
 // engineered by Maro Elias Goth
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
@@ -9,6 +9,38 @@ import { createRateLimit, rateLimitKeyByUserOrIp } from "../utils/rate-limit.js"
 import { getCustomPushRule, sendCustomPushRule } from "../services/push-rules.service.js";
 import { deleteUserAvatar, getAvatarPublicUrl } from "../services/avatar.service.js";
 import { settings } from "../config/settings.js";
+import { getAdminStatsController } from "./admin-stats.controller.js";
+import {
+  getAdminDockerStatus,
+  getAdminJobDashboard,
+  getAdminSystemMonitor,
+  getAdminWebsocketDashboard,
+  getDbHealth,
+  restartDockerServices,
+  saveFeatureFlags
+} from "../services/admin-system.service.js";
+import { listAuditLogs, writeAuditLog } from "../services/audit-log.service.js";
+import {
+  getApiHeatmap,
+  getQueueMonitor,
+  getRedisMonitor,
+  listSystemErrors,
+  resolveSystemError
+} from "../services/admin-observability.service.js";
+import {
+  createAlert,
+  getMetricsReport,
+  getMetricsSummary,
+  getMetricTimeseries,
+  listAlerts,
+  recordQueueRetry,
+  testAlerts
+} from "../services/metrics-registry.service.js";
+import { runCalendarRefreshJob } from "../cron/calendar-refresh.cron.js";
+import { runRemindersJob } from "../cron/reminders.cron.js";
+import { runPacklistCheckJob } from "../cron/packlist-check.cron.js";
+import { runCustomPushRulesJob } from "../cron/push-rules.cron.js";
+import { publishAdminQueue } from "../services/admin-stream.service.js";
 import {
   dateSchema,
   passwordSchema,
@@ -40,9 +72,71 @@ const settingSchema = z
   });
 
 const idParamsSchema = z.object({ id: uuidParamSchema }).strict();
+const jobIdParamsSchema = z.object({ id: z.enum(["calendar-refresh", "reminders", "packlist-check", "custom-push-rules"]) }).strict();
+const queueRetryParamsSchema = z.object({ jobId: z.string().trim().min(1).max(120) }).strict();
 const userListQuerySchema = z
   .object({
     role: z.string().trim().toLowerCase().optional()
+  })
+  .strict();
+const errorListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    severity: z.string().trim().max(20).optional(),
+    resolved: z.enum(["true", "false"]).optional()
+  })
+  .strict();
+
+const featureFlagsSchema = z
+  .object({
+    flags: z
+      .array(
+        z
+          .object({
+            key: z.enum(["chat_enabled", "nfc_enabled"]),
+            enabled: z.boolean()
+          })
+          .strict()
+      )
+      .min(1)
+      .max(20)
+  })
+  .strict();
+
+const metricsTimeseriesQuerySchema = z
+  .object({
+    metric: z.string().trim().min(1).max(120),
+    range: z.string().trim().regex(/^\d+(m|h|d)$/i).optional()
+  })
+  .strict();
+
+const metricsReportQuerySchema = z
+  .object({
+    format: z.enum(["json", "csv"]).default("json")
+  })
+  .strict();
+
+const alertCreateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    metric: z.string().trim().min(2).max(120),
+    operator: z.enum(["gt", "lt"]),
+    threshold: z.number().finite(),
+    windowSeconds: z.number().int().min(30).max(86400).default(300),
+    isActive: z.boolean().default(true)
+  })
+  .strict();
+
+const auditLogQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional(),
+    user: z.string().trim().max(120).optional(),
+    action: z.string().trim().max(120).optional(),
+    dateFrom: z.string().datetime().optional(),
+    dateTo: z.string().datetime().optional(),
+    search: z.string().trim().max(200).optional()
   })
   .strict();
 
@@ -156,7 +250,226 @@ const adminCount = () => {
   return Number(row.count ?? 0);
 };
 
+const getActorUserId = (request: FastifyRequest) => {
+  const user = request.user as { id?: unknown } | undefined;
+  const id = user?.id;
+  return typeof id === "string" && id.trim() ? id.trim() : null;
+};
+
 export const adminRoutes = async (app: FastifyInstance) => {
+  app.get("/admin/stats", { preHandler: requireAdmin }, getAdminStatsController);
+
+  app.get("/admin/system", { preHandler: requireAdmin }, async () => {
+    return getAdminSystemMonitor();
+  });
+
+  app.get("/admin/jobs", { preHandler: requireAdmin }, async () => {
+    return { jobs: getAdminJobDashboard() };
+  });
+
+  app.post("/admin/jobs/run/:id", { preHandler: requireAdmin }, async (request, reply) => {
+    const params = parseOrReply(reply, jobIdParamsSchema, request.params);
+    if (!params) return;
+
+    try {
+      if (params.id === "calendar-refresh") await runCalendarRefreshJob();
+      if (params.id === "reminders") await runRemindersJob();
+      if (params.id === "packlist-check") await runPacklistCheckJob();
+      if (params.id === "custom-push-rules") await runCustomPushRulesJob();
+
+      writeAuditLog({
+        actorUserId: getActorUserId(request),
+        action: "admin.jobs.run",
+        targetType: "job",
+        targetId: params.id
+      });
+      return { ok: true };
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        message: error instanceof Error ? error.message : "Job konnte nicht ausgefuehrt werden."
+      });
+    }
+  });
+
+  app.get("/admin/docker", { preHandler: requireAdmin }, async () => {
+    return getAdminDockerStatus();
+  });
+
+  app.post("/admin/docker/restart", { preHandler: requireAdmin }, async (request, reply) => {
+    try {
+      const result = await restartDockerServices();
+      writeAuditLog({
+        actorUserId: getActorUserId(request),
+        action: "admin.docker.restart",
+        targetType: "docker",
+        targetId: "compose"
+      });
+      return result;
+    } catch (error) {
+      return reply.code(503).send({
+        success: false,
+        message: error instanceof Error ? error.message : "Docker restart fehlgeschlagen."
+      });
+    }
+  });
+
+  app.get("/admin/websocket", { preHandler: requireAdmin }, async () => {
+    return getAdminWebsocketDashboard();
+  });
+
+  app.get("/admin/queue", { preHandler: requireAdmin }, async () => {
+    return getQueueMonitor();
+  });
+
+  app.post("/admin/queue/retry/:jobId", { preHandler: requireAdmin }, async (request, reply) => {
+    const params = parseOrReply(reply, queueRetryParamsSchema, request.params);
+    if (!params) return;
+    const id = params.jobId;
+    try {
+      if (id === "calendar-refresh") await runCalendarRefreshJob();
+      else if (id === "reminders") await runRemindersJob();
+      else if (id === "packlist-check") await runPacklistCheckJob();
+      else if (id === "custom-push-rules") await runCustomPushRulesJob();
+      else return reply.code(404).send({ success: false, message: "Job nicht gefunden." });
+      recordQueueRetry();
+
+      const snapshot = getQueueMonitor();
+      publishAdminQueue(snapshot as unknown as Record<string, unknown>);
+      writeAuditLog({
+        actorUserId: getActorUserId(request),
+        action: "admin.queue.retry",
+        entityType: "queue_job",
+        entityId: id,
+        ipAddress: request.ip,
+        userAgent: String(request.headers["user-agent"] ?? "")
+      });
+      return { ok: true };
+    } catch (error) {
+      return reply.code(500).send({
+        success: false,
+        message: error instanceof Error ? error.message : "Retry fehlgeschlagen."
+      });
+    }
+  });
+
+  app.get("/admin/redis", { preHandler: requireAdmin }, async () => {
+    return getRedisMonitor();
+  });
+
+  app.post("/admin/feature-flags", { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = parseOrReply(reply, featureFlagsSchema, request.body);
+    if (!parsed) return;
+    const result = saveFeatureFlags(parsed.flags);
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.feature-flags.update",
+      targetType: "settings",
+      metadata: { flags: parsed.flags }
+    });
+    return result;
+  });
+
+  app.get("/admin/db-health", { preHandler: requireAdmin }, async () => {
+    return getDbHealth();
+  });
+
+  app.get("/admin/audit-logs", { preHandler: requireAdmin }, async (request, reply) => {
+    const query = parseOrReply(reply, auditLogQuerySchema, request.query ?? {});
+    if (!query) return;
+    return listAuditLogs(query);
+  });
+
+  app.get("/admin/security/audit", { preHandler: requireAdmin }, async (request, reply) => {
+    const query = parseOrReply(reply, auditLogQuerySchema, request.query ?? {});
+    if (!query) return;
+    return listAuditLogs(query);
+  });
+
+  app.get("/admin/errors", { preHandler: requireAdmin }, async (request, reply) => {
+    const query = parseOrReply(reply, errorListQuerySchema, request.query ?? {});
+    if (!query) return;
+    return listSystemErrors(query);
+  });
+
+  app.post("/admin/errors/:id/resolve", { preHandler: requireAdmin }, async (request, reply) => {
+    const params = parseOrReply(reply, idParamsSchema, request.params);
+    if (!params) return;
+    const ok = resolveSystemError(params.id);
+    if (!ok) return reply.code(404).send({ success: false, message: "Eintrag nicht gefunden." });
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.errors.resolve",
+      entityType: "error",
+      entityId: params.id,
+      ipAddress: request.ip,
+      userAgent: String(request.headers["user-agent"] ?? "")
+    });
+    return { ok: true };
+  });
+
+  app.get("/admin/metrics/api-heatmap", { preHandler: requireAdmin }, async () => {
+    return { items: getApiHeatmap() };
+  });
+
+  app.get("/admin/metrics/summary", { preHandler: requireAdmin }, async () => {
+    return getMetricsSummary();
+  });
+
+  app.get("/admin/metrics/timeseries", { preHandler: requireAdmin }, async (request, reply) => {
+    const query = parseOrReply(reply, metricsTimeseriesQuerySchema, request.query ?? {});
+    if (!query) return;
+    return getMetricTimeseries(query.metric, query.range);
+  });
+
+  app.get("/admin/metrics/report", { preHandler: requireAdmin }, async (request, reply) => {
+    const query = parseOrReply(reply, metricsReportQuerySchema, request.query ?? {});
+    if (!query) return;
+    const format = query.format ?? "json";
+    const content = getMetricsReport(format);
+    const ext = format === "csv" ? "csv" : "json";
+    reply.header("Content-Type", format === "csv" ? "text/csv; charset=utf-8" : "application/json; charset=utf-8");
+    reply.header("Content-Disposition", `attachment; filename=\"pfadi-observability-report.${ext}\"`);
+    return reply.send(content);
+  });
+
+  app.post("/admin/alerts", { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = parseOrReply(reply, alertCreateSchema, request.body);
+    if (!parsed) return;
+    const alert = createAlert({
+      name: parsed.name,
+      metric: parsed.metric,
+      operator: parsed.operator,
+      threshold: parsed.threshold,
+      windowSeconds: parsed.windowSeconds ?? 300,
+      isActive: parsed.isActive ?? true
+    });
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.alert.create",
+      entityType: "alert_threshold",
+      entityId: alert.id,
+      ipAddress: request.ip,
+      userAgent: String(request.headers["user-agent"] ?? ""),
+      metadata: { metric: alert.metric, operator: alert.operator, threshold: alert.threshold }
+    });
+    return reply.code(201).send(alert);
+  });
+
+  app.get("/admin/alerts", { preHandler: requireAdmin }, async () => {
+    return { items: listAlerts() };
+  });
+
+  app.post("/admin/alerts/test", { preHandler: requireAdmin }, async (request) => {
+    const result = testAlerts();
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.alert.test",
+      entityType: "alert_threshold"
+    });
+    return result;
+  });
+
   app.post("/admin/bootstrap", { preHandler: bootstrapRateLimit }, async (request, reply) => {
     const parsed = parseOrReply(reply, bootstrapSchema, request.body);
     if (!parsed) return;
@@ -184,6 +497,13 @@ export const adminRoutes = async (app: FastifyInstance) => {
         now,
         existing.id
       );
+      writeAuditLog({
+        actorUserId: null,
+        action: "admin.bootstrap.promote-existing",
+        targetType: "user",
+        targetId: existing.id,
+        metadata: { username: normalized }
+      });
       return reply.send({
         success: true,
         message: "Erster Admin gesetzt.",
@@ -203,6 +523,13 @@ export const adminRoutes = async (app: FastifyInstance) => {
     db.prepare(
       "INSERT INTO users (id, email, password_hash, role, status, created_at, updated_at) VALUES (?, ?, ?, 'admin', 'approved', ?, ?)"
     ).run(id, normalized, passwordHash, now, now);
+    writeAuditLog({
+      actorUserId: null,
+      action: "admin.bootstrap.create-admin",
+      targetType: "user",
+      targetId: id,
+      metadata: { username: normalized }
+    });
 
     return reply.code(201).send({
       success: true,
@@ -278,6 +605,13 @@ export const adminRoutes = async (app: FastifyInstance) => {
     if (result.changes === 0) {
       return reply.code(404).send({ error: "Not found" });
     }
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.user.role.update",
+      targetType: "user",
+      targetId: params.id,
+      metadata: { role: parsed.role }
+    });
     return reply.send({ ok: true });
   });
 
@@ -292,6 +626,13 @@ export const adminRoutes = async (app: FastifyInstance) => {
     if (result.changes === 0) {
       return reply.code(404).send({ error: "Not found" });
     }
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.user.status.update",
+      targetType: "user",
+      targetId: params.id,
+      metadata: { status: parsed.status, role: parsed.role ?? null }
+    });
     return reply.send({ ok: true });
   });
 
@@ -307,6 +648,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
       return reply.code(404).send({ error: "Not found" });
     }
 
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.user.force-logout",
+      targetType: "user",
+      targetId: params.id
+    });
     return reply.send({ ok: true, forced_at: now });
   });
 
@@ -340,6 +687,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
       return reply.code(404).send({ error: "Not found" });
     }
 
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.user.delete",
+      targetType: "user",
+      targetId: params.id
+    });
     return reply.code(204).send();
   });
 
@@ -360,6 +713,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
       }
     });
     transaction();
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.settings.update",
+      targetType: "settings",
+      metadata: { count: parsed.length }
+    });
     return reply.send({ ok: true });
   });
 
@@ -412,6 +771,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
       now,
       now
     );
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.push-rule.create",
+      targetType: "push_rule",
+      targetId: id
+    });
     return reply.code(201).send({ id });
   });
 
@@ -463,6 +828,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
     if (result.changes === 0) {
       return reply.code(404).send({ error: "Not found" });
     }
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.push-rule.update",
+      targetType: "push_rule",
+      targetId: params.id
+    });
     return reply.send({ ok: true });
   });
 
@@ -473,6 +844,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
     if (result.changes === 0) {
       return reply.code(404).send({ error: "Not found" });
     }
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.push-rule.delete",
+      targetType: "push_rule",
+      targetId: params.id
+    });
     return reply.code(204).send();
   });
 
@@ -487,6 +864,12 @@ export const adminRoutes = async (app: FastifyInstance) => {
       return reply.code(409).send({ error: "Regel ist deaktiviert." });
     }
     const result = await sendCustomPushRule(rule);
+    writeAuditLog({
+      actorUserId: getActorUserId(request),
+      action: "admin.push-rule.send-now",
+      targetType: "push_rule",
+      targetId: params.id
+    });
     return reply.send({ ok: true, delivered: result.delivered, skipped: result.skipped, last_sent_at: result.lastSentAt });
   });
 };

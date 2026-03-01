@@ -11,10 +11,11 @@
   },
   "dependencies": {
     "@fastify/cors": "^9.0.1",
-    "@fastify/jwt": "^8.0.0",
     "@fastify/helmet": "^11.0.0",
+    "@fastify/jwt": "^8.0.0",
     "@fastify/multipart": "^8.3.1",
     "@fastify/static": "^6.12.0",
+    "@types/ws": "^8.18.1",
     "better-sqlite3": "^9.4.3",
     "dotenv": "^16.4.5",
     "fastify": "^4.27.0",
@@ -24,11 +25,12 @@
     "sharp": "^0.33.5",
     "uuid": "^9.0.1",
     "web-push": "^3.6.7",
+    "ws": "^8.19.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/node": "^20.12.12",
     "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.12.12",
     "@types/node-cron": "^3.0.11",
     "@types/uuid": "^9.0.8",
     "@types/web-push": "^3.6.4",

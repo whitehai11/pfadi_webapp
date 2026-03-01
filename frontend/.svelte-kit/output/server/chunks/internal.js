@@ -902,7 +902,7 @@ const options = {
   service_worker: false,
   service_worker_options: null,
   templates: {
-    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\n    <link rel="icon" href="/icon.svg" />\n    <link rel="manifest" href="/manifest.json" />\n    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />\n    <meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <script>\n      (function () {\n        try {\n          var stored = localStorage.getItem("pfadi_theme");\n          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;\n          var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";\n          document.documentElement.setAttribute("data-theme", theme);\n        } catch (_err) {\n          document.documentElement.setAttribute("data-theme", "light");\n        }\n      })();\n    <\/script>\n    ' + head + '\n  </head>\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
+    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\r\n    <link rel="icon" href="/icon.svg" />\r\n    <link rel="manifest" href="/manifest.json" />\r\n    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />\r\n    <meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />\r\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\r\n    <script>\r\n      (function () {\r\n        try {\r\n          var stored = localStorage.getItem("pfadi_theme");\r\n          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;\r\n          var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";\r\n          document.documentElement.setAttribute("data-theme", theme);\r\n        } catch (_err) {\r\n          document.documentElement.setAttribute("data-theme", "light");\r\n        }\r\n      })();\r\n    <\/script>\r\n    ' + head + '\r\n  </head>\r\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
     error: ({ status, message }) => '<!doctype html>\r\n<html lang="en">\r\n	<head>\r\n		<meta charset="utf-8" />\r\n		<title>' + message + `</title>\r
 \r
 		<style>\r
@@ -974,7 +974,7 @@ const options = {
 		<div class="error">\r
 			<span class="status">` + status + '</span>\r\n			<div class="message">\r\n				<h1>' + message + "</h1>\r\n			</div>\r\n		</div>\r\n	</body>\r\n</html>\r\n"
   },
-  version_hash: "1ns41g5"
+  version_hash: "1fktybb"
 };
 async function get_hooks() {
   let handle;

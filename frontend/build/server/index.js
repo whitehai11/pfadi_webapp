@@ -1,9 +1,9 @@
-import { s as set, L as LEGACY_PROPS, g as get, f as flushSync, d as define_property, m as mutable_source, i as init_operations, a as get_first_child, C as COMMENT_NODE, H as HYDRATION_START, b as get_next_sibling, c as HYDRATION_ERROR, h as hydration_failed, e as clear_text_content, j as array_from, k as component_root, l as set_active_reaction, n as set_active_effect, o as active_effect, p as active_reaction, q as create_text, r as block, t as branch, B as Batch, u as pause_effect, v as defer_effect, w as set_component_context, x as handle_error, y as component_context, z as move_effect, A as set_signal_status, D as DIRTY, E as schedule_effect, M as MAYBE_DIRTY, F as internal_set, G as destroy_effect, I as invoke_error_boundary, J as queue_micro_task, K as svelte_boundary_reset_onerror, N as effect_tracking, O as render_effect, P as HYDRATION_END, Q as source, R as HYDRATION_START_ELSE, S as untrack, T as increment, U as push, V as pop, W as EFFECT_TRANSPARENT, X as EFFECT_PRESERVED, Y as BOUNDARY_EFFECT, Z as BROWSER, _ as readable, $ as writable } from './chunks/index-D8baVE2l.js';
+import { s as set, L as LEGACY_PROPS, g as get, f as flushSync, d as define_property, m as mutable_source, i as init_operations, a as get_first_child, C as COMMENT_NODE, H as HYDRATION_START, b as get_next_sibling, c as HYDRATION_ERROR, h as hydration_failed, e as clear_text_content, j as array_from, k as component_root, l as set_active_reaction, n as set_active_effect, o as active_effect, p as active_reaction, q as create_text, r as block, t as branch, B as Batch, u as pause_effect, v as defer_effect, w as set_component_context, x as handle_error, y as component_context, z as move_effect, A as set_signal_status, D as DIRTY, E as schedule_effect, M as MAYBE_DIRTY, F as internal_set, G as destroy_effect, I as invoke_error_boundary, J as queue_micro_task, K as svelte_boundary_reset_onerror, N as effect_tracking, O as render_effect, P as HYDRATION_END, Q as source, R as HYDRATION_START_ELSE, S as untrack, T as increment, U as push, V as pop, W as EFFECT_TRANSPARENT, X as EFFECT_PRESERVED, Y as BOUNDARY_EFFECT, Z as DEV, _ as readable, $ as writable } from './chunks/index-DTmrBTzd.js';
 import { json, text, error } from '@sveltejs/kit';
 import { SvelteKitError, Redirect, HttpError, ActionFailure } from '@sveltejs/kit/internal';
 import { with_request_store, merge_tracing } from '@sveltejs/kit/internal/server';
 import { t as text_decoder, b as base64_decode, d as decode_pathname, a as decode_params, n as normalize_path, c as disable_search, v as validate_layout_server_exports, e as validate_layout_exports, f as validate_page_server_exports, g as validate_page_exports, h as text_encoder, r as resolve, m as make_trackable, i as get_relative_path, j as base64_encode } from './chunks/exports-CoK1Wwct.js';
-import { D as DevalueError, i as is_primitive, g as get_type, a as is_plain_object, e as enumerable_symbols, s as stringify_key, b as stringify_string, r as render, c as is_passive_event, u as uneval } from './chunks/index2-C9kBesvG.js';
+import { D as DevalueError, i as is_primitive, g as get_type, a as is_plain_object, e as enumerable_symbols, s as stringify_key, b as stringify_string, r as render, c as is_passive_event, u as uneval } from './chunks/index2-CgloSoMs.js';
 import { s as setContext } from './chunks/context-DBa-_tdZ.js';
 import './chunks/escaping-CqgfEcN3.js';
 
@@ -1832,7 +1832,7 @@ const options = {
   service_worker: false,
   service_worker_options: null,
   templates: {
-    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\n    <link rel="icon" href="/icon.svg" />\n    <link rel="manifest" href="/manifest.json" />\n    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />\n    <meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\n    <script>\n      (function () {\n        try {\n          var stored = localStorage.getItem("pfadi_theme");\n          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;\n          var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";\n          document.documentElement.setAttribute("data-theme", theme);\n        } catch (_err) {\n          document.documentElement.setAttribute("data-theme", "light");\n        }\n      })();\n    <\/script>\n    ' + head + '\n  </head>\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
+    app: ({ head, body, assets, nonce, env }) => '<!doctype html>\r\n<html lang="de">\r\n  <head>\r\n    <meta charset="utf-8" />\r\n    <link rel="icon" href="/icon.svg" />\r\n    <link rel="manifest" href="/manifest.json" />\r\n    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />\r\n    <meta name="theme-color" content="#111216" media="(prefers-color-scheme: dark)" />\r\n    <meta name="viewport" content="width=device-width, initial-scale=1" />\r\n    <script>\r\n      (function () {\r\n        try {\r\n          var stored = localStorage.getItem("pfadi_theme");\r\n          var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;\r\n          var theme = stored === "light" || stored === "dark" ? stored : prefersDark ? "dark" : "light";\r\n          document.documentElement.setAttribute("data-theme", theme);\r\n        } catch (_err) {\r\n          document.documentElement.setAttribute("data-theme", "light");\r\n        }\r\n      })();\r\n    <\/script>\r\n    ' + head + '\r\n  </head>\r\n  <body data-sveltekit-preload-data="hover">\r\n    <div class="app-root">' + body + "</div>\r\n  </body>\r\n</html>\r\n",
     error: ({ status, message }) => '<!doctype html>\r\n<html lang="en">\r\n	<head>\r\n		<meta charset="utf-8" />\r\n		<title>' + message + `</title>\r
 \r
 		<style>\r
@@ -1904,7 +1904,7 @@ const options = {
 		<div class="error">\r
 			<span class="status">` + status + '</span>\r\n			<div class="message">\r\n				<h1>' + message + "</h1>\r\n			</div>\r\n		</div>\r\n	</body>\r\n</html>\r\n"
   },
-  version_hash: "1ns41g5"
+  version_hash: "1fktybb"
 };
 async function get_hooks() {
   let handle;
@@ -2868,7 +2868,7 @@ async function handle_action_json_request(event, event_state, options2, server) 
   check_named_default_separate(actions);
   try {
     const data = await call_action(event, event_state, actions);
-    if (BROWSER) ;
+    if (DEV) ;
     if (data instanceof ActionFailure) {
       return action_json({
         type: "failure",
@@ -2953,7 +2953,7 @@ async function handle_action_request(event, event_state, server) {
   check_named_default_separate(actions);
   try {
     const data = await call_action(event, event_state, actions);
-    if (BROWSER) ;
+    if (DEV) ;
     if (data instanceof ActionFailure) {
       return {
         type: "failure",
@@ -4208,7 +4208,7 @@ async function render_response({
       ])
     };
     try {
-      if (BROWSER) ;
+      if (DEV) ;
       rendered = await with_request_store({ event, state: event_state }, async () => {
         if (relative) override({ base: base$1, assets: assets$1 });
         const maybe_promise = options2.root.render(props, render_opts);
@@ -5019,7 +5019,7 @@ async function render_page(event, event_state, page, options2, manifest, state, 
     const ssr = nodes.ssr();
     const csr = nodes.csr();
     if (ssr === false && !(state.prerendering && should_prerender_data)) {
-      if (BROWSER && action_result && !event.request.headers.has("x-sveltekit-action")) ;
+      if (DEV && action_result && !event.request.headers.has("x-sveltekit-action")) ;
       return await render_response({
         branch: [],
         fetched,
@@ -5874,12 +5874,12 @@ async function internal_respond(request, options2, manifest, state) {
       if (url.pathname === base || url.pathname === base + "/") {
         trailing_slash = "always";
       } else if (page_nodes) {
-        if (BROWSER) ;
+        if (DEV) ;
         trailing_slash = page_nodes.trailing_slash();
       } else if (route.endpoint) {
         const node = await route.endpoint();
         trailing_slash = node.trailingSlash ?? "never";
-        if (BROWSER) ;
+        if (DEV) ;
       }
       if (!is_data_request) {
         const normalized = normalize_path(url.pathname, trailing_slash);
@@ -6139,7 +6139,7 @@ async function internal_respond(request, options2, manifest, state) {
         });
       }
       if (state.depth === 0) {
-        if (BROWSER && event2.url.pathname === "/.well-known/appspecific/com.chrome.devtools.json") ;
+        if (DEV && event2.url.pathname === "/.well-known/appspecific/com.chrome.devtools.json") ;
         return await respond_with_error({
           event: event2,
           event_state,
