@@ -67,7 +67,7 @@
   };
 
   const navItems = [
-    { href: "/", label: "Ubersicht", icon: "home" as const },
+    { href: "/", label: "Übersicht", icon: "home" as const },
     { href: "/calendar", label: "Kalender", icon: "calendar" as const },
     { href: "/inventory", label: "Material", icon: "inventory" as const },
     { href: "/chat", label: "Chat", icon: "chat" as const },
@@ -203,7 +203,7 @@
       startNotificationsRealtime();
       if (get(session)) {
         try {
-          const profile = await apiFetch<{ username: string; role: "admin" | "user" | "materialwart"; avatar_url?: string | null }>(
+          const profile = await apiFetch<{ username: string; role: "admin" | "dev" | "user" | "materialwart"; avatar_url?: string | null }>(
             "/api/auth/me",
             { toastOnError: false }
           );
@@ -280,7 +280,7 @@
 <div class="app-shell">
   <Toaster />
   {#if $session}
-    <CommandPalette isAdmin={$session.role === "admin"} enabled={true} />
+    <CommandPalette isAdmin={$session.role === "admin" || $session.role === "dev"} enabled={true} />
   {/if}
 
   <UpdateBanner
@@ -294,7 +294,7 @@
     <Navigation
       items={[
         ...visibleNavItems,
-        ...($session.role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin" as const }] : [])
+        ...($session.role === "admin" || $session.role === "dev" ? [{ href: "/admin", label: "Admin", icon: "admin" as const }] : [])
       ]}
       currentPath={$page.url.pathname}
       username={$session.username}

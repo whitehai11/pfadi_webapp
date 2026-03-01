@@ -4,7 +4,7 @@ import { writable } from "svelte/store";
 export type UserSession = {
   id: string;
   username: string;
-  role: "admin" | "user" | "materialwart";
+  role: "admin" | "dev" | "user" | "materialwart";
   status?: "approved";
   avatarUrl?: string | null;
 };
@@ -83,5 +83,6 @@ export const setSessionProfile = (profile: { username?: string; role?: UserSessi
 export const roleLabel = (role: UserSession["role"]) => {
   if (role === "user") return "Nutzer";
   if (role === "admin") return "Admin";
+  if (role === "dev") return "Dev";
   return "Materialwart";
 };

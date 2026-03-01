@@ -271,6 +271,19 @@ app.addHook("onResponse", async (request, reply) => {
   }
 });
 
+app.addHook("onSend", async (_request, reply, payload) => {
+  const contentType = reply.getHeader("content-type");
+  if (typeof contentType !== "string") return payload;
+  const normalized = contentType.toLowerCase();
+  const needsCharset =
+    (normalized.startsWith("application/json") || normalized.startsWith("text/")) &&
+    !normalized.includes("charset=");
+  if (needsCharset) {
+    reply.header("Content-Type", `${contentType}; charset=utf-8`);
+  }
+  return payload;
+});
+
 app.addHook("preSerialization", async (request, reply, payload) => normalizeApiResponse(request, reply, payload));
 
 app.setErrorHandler((error, request, reply) => {

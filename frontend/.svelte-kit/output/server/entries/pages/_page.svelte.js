@@ -1,5 +1,6 @@
 import { s as store_get, c as attr_class, a as attr, u as unsubscribe_stores, e as ensure_array_like } from "../../chunks/index2.js";
 import { C as Card } from "../../chunks/Card.js";
+/* empty css                                                    */
 import { L as Logo } from "../../chunks/Logo.js";
 import { a as apiFetch } from "../../chunks/api.js";
 import { a as session } from "../../chunks/auth.js";
@@ -41,7 +42,7 @@ function _page($$renderer, $$props) {
         }));
         openResponses = responseChecks.filter(Boolean);
       } catch {
-        dashboardError = "Die Ubersicht konnte nicht vollstandig geladen werden.";
+        dashboardError = "Die Übersicht konnte nicht vollständig geladen werden.";
         pushToast(dashboardError, "error");
         upcomingEvents = [];
         lowStockItems = [];
@@ -89,7 +90,7 @@ function _page($$renderer, $$props) {
       $$renderer2.push(`<!--]--></div></section>`);
     } else {
       $$renderer2.push("<!--[!-->");
-      $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Ubersicht</h1></section> `);
+      $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Übersicht</h1></section> `);
       if (dashboardError) {
         $$renderer2.push("<!--[-->");
         $$renderer2.push(`<p class="status-banner error">${escape_html(dashboardError)}</p>`);
@@ -98,7 +99,7 @@ function _page($$renderer, $$props) {
       }
       $$renderer2.push(`<!--]--> <section class="dashboard-grid">`);
       Card($$renderer2, {
-        title: "Nachste Termine",
+        title: "Nächste Termine",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
@@ -115,7 +116,7 @@ function _page($$renderer, $$props) {
               const each_array = ensure_array_like(upcomingEvents);
               for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
                 let event = each_array[$$index];
-                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(event.title)}</strong> <span class="text-muted">${escape_html(new Date(event.start_at).toLocaleString("de-DE"))}</span></div> <a class="subtle-button btn" href="/calendar">Offnen</a></div>`);
+                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(event.title)}</strong> <span class="text-muted">${escape_html(new Date(event.start_at).toLocaleString("de-DE"))}</span></div> <a class="subtle-button btn" href="/calendar">Öffnen</a></div>`);
               }
               $$renderer3.push(`<!--]--></div>`);
             }
@@ -142,14 +143,14 @@ function _page($$renderer, $$props) {
             $$renderer3.push("<!--[!-->");
             if (lowStockItems.length === 0) {
               $$renderer3.push("<!--[-->");
-              $$renderer3.push(`<p class="text-muted">Keine Eintrage.</p>`);
+              $$renderer3.push(`<p class="text-muted">Keine Einträge.</p>`);
             } else {
               $$renderer3.push("<!--[!-->");
               $$renderer3.push(`<div class="hairline-list"><!--[-->`);
               const each_array_1 = ensure_array_like(lowStockItems);
               for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
                 let item = each_array_1[$$index_1];
-                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(item.name)}</strong> <span class="text-muted">${escape_html(item.quantity)} von ${escape_html(item.min_quantity)} verfugbar</span></div> <span class="badge badge-warning">Beobachten</span></div>`);
+                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(item.name)}</strong> <span class="text-muted">${escape_html(item.quantity)} von ${escape_html(item.min_quantity)} verfügbar</span></div> <span class="badge badge-warning">Beobachten</span></div>`);
               }
               $$renderer3.push(`<!--]--></div>`);
             }
@@ -166,7 +167,7 @@ function _page($$renderer, $$props) {
       });
       $$renderer2.push(`<!----> `);
       Card($$renderer2, {
-        title: "Offene Ruckmeldungen",
+        title: "Offene Rückmeldungen",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
@@ -176,7 +177,7 @@ function _page($$renderer, $$props) {
             $$renderer3.push("<!--[!-->");
             if (openResponses.length === 0) {
               $$renderer3.push("<!--[-->");
-              $$renderer3.push(`<p class="text-muted">Keine offenen Ruckmeldungen.</p>`);
+              $$renderer3.push(`<p class="text-muted">Keine offenen Rückmeldungen.</p>`);
             } else {
               $$renderer3.push("<!--[!-->");
               $$renderer3.push(`<div class="hairline-list"><!--[-->`);

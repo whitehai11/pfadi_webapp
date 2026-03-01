@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
-import { requireAdmin } from "../utils/guards.js";
+import { requireAdmin, requireDev } from "../utils/guards.js";
 import { hashPassword } from "../utils/auth.js";
 import { createRateLimit, rateLimitKeyByUserOrIp } from "../utils/rate-limit.js";
 import { getCustomPushRule, sendCustomPushRule } from "../services/push-rules.service.js";
@@ -142,7 +142,7 @@ const auditLogQuerySchema = z
 
 const roleSchema = z
   .object({
-    role: z.enum(["admin", "user", "materialwart"])
+    role: z.enum(["admin", "dev", "user", "materialwart"])
   })
   .strict();
 
@@ -156,7 +156,7 @@ const bootstrapSchema = z
 const statusSchema = z
   .object({
     status: z.enum(["approved", "rejected"]),
-    role: z.enum(["admin", "user", "materialwart"]).optional()
+    role: z.enum(["admin", "dev", "user", "materialwart"]).optional()
   })
   .strict();
 
@@ -259,15 +259,15 @@ const getActorUserId = (request: FastifyRequest) => {
 export const adminRoutes = async (app: FastifyInstance) => {
   app.get("/admin/stats", { preHandler: requireAdmin }, getAdminStatsController);
 
-  app.get("/admin/system", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/system", { preHandler: requireDev }, async () => {
     return getAdminSystemMonitor();
   });
 
-  app.get("/admin/jobs", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/jobs", { preHandler: requireDev }, async () => {
     return { jobs: getAdminJobDashboard() };
   });
 
-  app.post("/admin/jobs/run/:id", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/jobs/run/:id", { preHandler: requireDev }, async (request, reply) => {
     const params = parseOrReply(reply, jobIdParamsSchema, request.params);
     if (!params) return;
 
@@ -292,11 +292,11 @@ export const adminRoutes = async (app: FastifyInstance) => {
     }
   });
 
-  app.get("/admin/docker", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/docker", { preHandler: requireDev }, async () => {
     return getAdminDockerStatus();
   });
 
-  app.post("/admin/docker/restart", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/docker/restart", { preHandler: requireDev }, async (request, reply) => {
     try {
       const result = await restartDockerServices();
       writeAuditLog({
@@ -314,15 +314,15 @@ export const adminRoutes = async (app: FastifyInstance) => {
     }
   });
 
-  app.get("/admin/websocket", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/websocket", { preHandler: requireDev }, async () => {
     return getAdminWebsocketDashboard();
   });
 
-  app.get("/admin/queue", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/queue", { preHandler: requireDev }, async () => {
     return getQueueMonitor();
   });
 
-  app.post("/admin/queue/retry/:jobId", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/queue/retry/:jobId", { preHandler: requireDev }, async (request, reply) => {
     const params = parseOrReply(reply, queueRetryParamsSchema, request.params);
     if (!params) return;
     const id = params.jobId;
@@ -353,11 +353,11 @@ export const adminRoutes = async (app: FastifyInstance) => {
     }
   });
 
-  app.get("/admin/redis", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/redis", { preHandler: requireDev }, async () => {
     return getRedisMonitor();
   });
 
-  app.post("/admin/feature-flags", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/feature-flags", { preHandler: requireDev }, async (request, reply) => {
     const parsed = parseOrReply(reply, featureFlagsSchema, request.body);
     if (!parsed) return;
     const result = saveFeatureFlags(parsed.flags);
@@ -370,29 +370,29 @@ export const adminRoutes = async (app: FastifyInstance) => {
     return result;
   });
 
-  app.get("/admin/db-health", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/db-health", { preHandler: requireDev }, async () => {
     return getDbHealth();
   });
 
-  app.get("/admin/audit-logs", { preHandler: requireAdmin }, async (request, reply) => {
+  app.get("/admin/audit-logs", { preHandler: requireDev }, async (request, reply) => {
     const query = parseOrReply(reply, auditLogQuerySchema, request.query ?? {});
     if (!query) return;
     return listAuditLogs(query);
   });
 
-  app.get("/admin/security/audit", { preHandler: requireAdmin }, async (request, reply) => {
+  app.get("/admin/security/audit", { preHandler: requireDev }, async (request, reply) => {
     const query = parseOrReply(reply, auditLogQuerySchema, request.query ?? {});
     if (!query) return;
     return listAuditLogs(query);
   });
 
-  app.get("/admin/errors", { preHandler: requireAdmin }, async (request, reply) => {
+  app.get("/admin/errors", { preHandler: requireDev }, async (request, reply) => {
     const query = parseOrReply(reply, errorListQuerySchema, request.query ?? {});
     if (!query) return;
     return listSystemErrors(query);
   });
 
-  app.post("/admin/errors/:id/resolve", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/errors/:id/resolve", { preHandler: requireDev }, async (request, reply) => {
     const params = parseOrReply(reply, idParamsSchema, request.params);
     if (!params) return;
     const ok = resolveSystemError(params.id);
@@ -408,21 +408,21 @@ export const adminRoutes = async (app: FastifyInstance) => {
     return { ok: true };
   });
 
-  app.get("/admin/metrics/api-heatmap", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/metrics/api-heatmap", { preHandler: requireDev }, async () => {
     return { items: getApiHeatmap() };
   });
 
-  app.get("/admin/metrics/summary", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/metrics/summary", { preHandler: requireDev }, async () => {
     return getMetricsSummary();
   });
 
-  app.get("/admin/metrics/timeseries", { preHandler: requireAdmin }, async (request, reply) => {
+  app.get("/admin/metrics/timeseries", { preHandler: requireDev }, async (request, reply) => {
     const query = parseOrReply(reply, metricsTimeseriesQuerySchema, request.query ?? {});
     if (!query) return;
     return getMetricTimeseries(query.metric, query.range);
   });
 
-  app.get("/admin/metrics/report", { preHandler: requireAdmin }, async (request, reply) => {
+  app.get("/admin/metrics/report", { preHandler: requireDev }, async (request, reply) => {
     const query = parseOrReply(reply, metricsReportQuerySchema, request.query ?? {});
     if (!query) return;
     const format = query.format ?? "json";
@@ -433,7 +433,7 @@ export const adminRoutes = async (app: FastifyInstance) => {
     return reply.send(content);
   });
 
-  app.post("/admin/alerts", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/admin/alerts", { preHandler: requireDev }, async (request, reply) => {
     const parsed = parseOrReply(reply, alertCreateSchema, request.body);
     if (!parsed) return;
     const alert = createAlert({
@@ -456,11 +456,11 @@ export const adminRoutes = async (app: FastifyInstance) => {
     return reply.code(201).send(alert);
   });
 
-  app.get("/admin/alerts", { preHandler: requireAdmin }, async () => {
+  app.get("/admin/alerts", { preHandler: requireDev }, async () => {
     return { items: listAlerts() };
   });
 
-  app.post("/admin/alerts/test", { preHandler: requireAdmin }, async (request) => {
+  app.post("/admin/alerts/test", { preHandler: requireDev }, async (request) => {
     const result = testAlerts();
     writeAuditLog({
       actorUserId: getActorUserId(request),

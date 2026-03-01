@@ -7,7 +7,7 @@
   type UserRow = {
     id: string;
     email: string;
-    role: "admin" | "user" | "materialwart";
+    role: "admin" | "dev" | "user" | "materialwart";
     status: "pending" | "approved" | "rejected";
     created_at: string;
     avatar_url?: string | null;
@@ -16,13 +16,14 @@
   type PendingRow = {
     id: string;
     email: string;
-    role: "admin" | "user" | "materialwart";
+    role: "admin" | "dev" | "user" | "materialwart";
     status: "pending";
     created_at: string;
   };
 
   const roleOptions = [
     { value: "alle", label: "Alle Rollen" },
+    { value: "dev", label: "Dev" },
     { value: "admin", label: "Admin" },
     { value: "materialwart", label: "Materialwart" },
     { value: "user", label: "Nutzer" }
@@ -238,6 +239,7 @@
                     <option value="user">Nutzer</option>
                     <option value="materialwart">Materialwart</option>
                     <option value="admin">Admin</option>
+                    <option value="dev">Dev</option>
                   </select>
                 </td>
                 <td>
@@ -293,6 +295,7 @@
                     <option value="user">Nutzer</option>
                     <option value="materialwart">Materialwart</option>
                     <option value="admin">Admin</option>
+                    <option value="dev">Dev</option>
                   </select>
                 </td>
                 <td>

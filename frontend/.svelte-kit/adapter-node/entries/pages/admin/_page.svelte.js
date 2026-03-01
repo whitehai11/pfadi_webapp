@@ -1,15 +1,151 @@
-import { a as attr, b as bind_props, e as ensure_array_like, c as attr_class, s as store_get, u as unsubscribe_stores } from "../../../chunks/index2.js";
-import { o as onDestroy } from "../../../chunks/index-server.js";
+import { c as attr_class, a as attr, f as slot, b as bind_props, e as ensure_array_like, s as store_get, u as unsubscribe_stores } from "../../../chunks/index2.js";
 import { g as goto } from "../../../chunks/client.js";
 import { p as page } from "../../../chunks/stores.js";
 import { C as Card } from "../../../chunks/Card.js";
 import { a as session } from "../../../chunks/auth.js";
 import { p as pushToast } from "../../../chunks/toast.js";
-import "clsx";
 import { e as escape_html } from "../../../chunks/escaping.js";
 import { Z as fallback } from "../../../chunks/utils2.js";
+import { o as onDestroy } from "../../../chunks/index-server.js";
+import "clsx";
 import { a as apiFetch } from "../../../chunks/api.js";
 import { w as writable } from "../../../chunks/index.js";
+import { H as HeroCard } from "../../../chunks/HeroCard.js";
+/* empty css                                                       */
+function HeroButton($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let type = fallback($$props["type"], "button");
+    let tone = fallback($$props["tone"], "neutral");
+    let disabled = fallback($$props["disabled"], false);
+    let onClick = fallback($$props["onClick"], null);
+    $$renderer2.push(`<button${attr_class(`hero-btn hero-btn--${tone}`, "svelte-xczfdv")}${attr("type", type)}${attr("disabled", disabled, true)}><!--[-->`);
+    slot($$renderer2, $$props, "default", {});
+    $$renderer2.push(`<!--]--></button>`);
+    bind_props($$props, { type, tone, disabled, onClick });
+  });
+}
+function AdminUserManagement($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    const roleOptions = [
+      { value: "alle", label: "Alle Rollen" },
+      { value: "dev", label: "Dev" },
+      { value: "admin", label: "Admin" },
+      { value: "materialwart", label: "Materialwart" },
+      { value: "user", label: "Nutzer" }
+    ];
+    let users = [];
+    let roleFilter = "alle";
+    let search = "";
+    users.filter((user) => {
+      if (!search.trim()) return true;
+      const needle = search.trim().toLowerCase();
+      return user.email.toLowerCase().includes(needle);
+    });
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">User Management</h2> `);
+    Card($$renderer2, {
+      title: "Benutzeranfragen",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Anfragen...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Benutzerverwaltung",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="toolbar svelte-1t40esv"><input class="input" placeholder="Suche nach Nutzername"${attr("value", search)}/> `);
+        $$renderer3.select({ value: roleFilter }, ($$renderer4) => {
+          $$renderer4.push(`<!--[-->`);
+          const each_array_1 = ensure_array_like(roleOptions);
+          for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
+            let option = each_array_1[$$index_1];
+            $$renderer4.option({ value: option.value }, ($$renderer5) => {
+              $$renderer5.push(`${escape_html(option.label)}`);
+            });
+          }
+          $$renderer4.push(`<!--]-->`);
+        });
+        $$renderer3.push(`</div> `);
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Benutzer...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminSystemTools($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let loading = true;
+    let quietStart = "21:00";
+    let quietEnd = "06:00";
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">System Actions</h2> `);
+    Card($$renderer2, {
+      title: "Feature Toggles",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Einstellungen...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Settings Panel",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="form-grid grid-2"><label><span>Quiet Hours Start</span> <input class="input" type="time"${attr("value", quietStart)}/></label> <label><span>Quiet Hours End</span> <input class="input" type="time"${attr("value", quietEnd)}/></label></div> <div class="actions"><button class="btn btn-primary" type="button"${attr("disabled", loading, true)}>${escape_html("Speichern")}</button></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "System-Status",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<div class="actions"><button class="btn btn-outline" type="button">Health prüfen</button> <button class="btn btn-outline" type="button">Version laden</button></div> <div class="hairline-list"><div class="list-row"><div class="list-meta"><strong>Health</strong> <span class="text-muted">${escape_html("-")}</span></div></div> <div class="list-row"><div class="list-meta"><strong>Version</strong> <span class="text-muted">${escape_html("-")}</span></div></div></div>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Logs",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<p class="text-muted">Keine direkte Log-API aktiv. Logs laufen serverseitig (Container/Host).</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminSidebar($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let sections = fallback($$props["sections"], () => [], true);
+    let activeTab = fallback($$props["activeTab"], "overview");
+    let onSelect = fallback($$props["onSelect"], null);
+    $$renderer2.push(`<aside class="admin-sidebar svelte-6rrwnf"><nav class="admin-sidebar__nav svelte-6rrwnf" aria-label="Admin Navigation"><!--[-->`);
+    const each_array = ensure_array_like(sections);
+    for (let $$index_1 = 0, $$length = each_array.length; $$index_1 < $$length; $$index_1++) {
+      let section = each_array[$$index_1];
+      $$renderer2.push(`<section class="admin-sidebar__section svelte-6rrwnf"><p class="admin-sidebar__heading svelte-6rrwnf">${escape_html(section.label)}</p> <!--[-->`);
+      const each_array_1 = ensure_array_like(section.tabs);
+      for (let $$index = 0, $$length2 = each_array_1.length; $$index < $$length2; $$index++) {
+        let tab = each_array_1[$$index];
+        $$renderer2.push(`<button type="button"${attr_class(`admin-sidebar__item ${activeTab === tab.id ? "is-active" : ""}`, "svelte-6rrwnf")}>${escape_html(tab.label)}</button>`);
+      }
+      $$renderer2.push(`<!--]--></section>`);
+    }
+    $$renderer2.push(`<!--]--></nav></aside>`);
+    bind_props($$props, { sections, activeTab, onSelect });
+  });
+}
 function AdminHeader($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     let lastUpdatedAt = fallback($$props["lastUpdatedAt"], "");
@@ -123,93 +259,6 @@ function AdminStats($$renderer, $$props) {
     }
     $$renderer2.push(`<!--]--></section>`);
     bind_props($$props, { stats, loading });
-  });
-}
-function AdminUserManagement($$renderer, $$props) {
-  $$renderer.component(($$renderer2) => {
-    const roleOptions = [
-      { value: "alle", label: "Alle Rollen" },
-      { value: "admin", label: "Admin" },
-      { value: "materialwart", label: "Materialwart" },
-      { value: "user", label: "Nutzer" }
-    ];
-    let users = [];
-    let roleFilter = "alle";
-    let search = "";
-    users.filter((user) => {
-      if (!search.trim()) return true;
-      const needle = search.trim().toLowerCase();
-      return user.email.toLowerCase().includes(needle);
-    });
-    $$renderer2.push(`<section class="section-block"><h2 class="section-title">User Management</h2> `);
-    Card($$renderer2, {
-      title: "Benutzeranfragen",
-      children: ($$renderer3) => {
-        {
-          $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<p class="text-muted">Lade Anfragen...</p>`);
-        }
-        $$renderer3.push(`<!--]-->`);
-      },
-      $$slots: { default: true }
-    });
-    $$renderer2.push(`<!----> `);
-    Card($$renderer2, {
-      title: "Benutzerverwaltung",
-      children: ($$renderer3) => {
-        $$renderer3.push(`<div class="toolbar svelte-1t40esv"><input class="input" placeholder="Suche nach Nutzername"${attr("value", search)}/> `);
-        $$renderer3.select({ value: roleFilter }, ($$renderer4) => {
-          $$renderer4.push(`<!--[-->`);
-          const each_array_1 = ensure_array_like(roleOptions);
-          for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
-            let option = each_array_1[$$index_1];
-            $$renderer4.option({ value: option.value }, ($$renderer5) => {
-              $$renderer5.push(`${escape_html(option.label)}`);
-            });
-          }
-          $$renderer4.push(`<!--]-->`);
-        });
-        $$renderer3.push(`</div> `);
-        {
-          $$renderer3.push("<!--[-->");
-          $$renderer3.push(`<p class="text-muted">Lade Benutzer...</p>`);
-        }
-        $$renderer3.push(`<!--]-->`);
-      },
-      $$slots: { default: true }
-    });
-    $$renderer2.push(`<!----></section>`);
-  });
-}
-function AdminSidebar($$renderer, $$props) {
-  $$renderer.component(($$renderer2) => {
-    let tabs = fallback($$props["tabs"], () => [], true);
-    let activeTab = fallback($$props["activeTab"], "overview");
-    let onSelect = fallback($$props["onSelect"], null);
-    $$renderer2.push(`<aside class="admin-sidebar svelte-6rrwnf"><nav class="admin-sidebar__nav svelte-6rrwnf" aria-label="Admin Navigation"><!--[-->`);
-    const each_array = ensure_array_like(tabs);
-    for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
-      let tab = each_array[$$index];
-      $$renderer2.push(`<button type="button"${attr_class(`admin-sidebar__item ${activeTab === tab.id ? "is-active" : ""}`, "svelte-6rrwnf")}>${escape_html(tab.label)}</button>`);
-    }
-    $$renderer2.push(`<!--]--></nav></aside>`);
-    bind_props($$props, { tabs, activeTab, onSelect });
-  });
-}
-function AdminTopBar($$renderer, $$props) {
-  $$renderer.component(($$renderer2) => {
-    let title = fallback($$props["title"], "Admin");
-    let subtitle = fallback($$props["subtitle"], "");
-    let onRefresh = fallback($$props["onRefresh"], null);
-    $$renderer2.push(`<header class="admin-topbar svelte-1qt4vx7"><div><h2 class="section-title">${escape_html(title)}</h2> `);
-    if (subtitle) {
-      $$renderer2.push("<!--[-->");
-      $$renderer2.push(`<p class="text-muted">${escape_html(subtitle)}</p>`);
-    } else {
-      $$renderer2.push("<!--[!-->");
-    }
-    $$renderer2.push(`<!--]--></div> <button class="btn btn-outline" type="button">Aktualisieren</button></header>`);
-    bind_props($$props, { title, subtitle, onRefresh });
   });
 }
 function AdminOverview($$renderer, $$props) {
@@ -1063,33 +1112,69 @@ function AdminApiHeatmap($$renderer, $$props) {
     $$renderer2.push(`<!----></section>`);
   });
 }
+function AdminPushManagement($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Push-Verwaltung</h2> `);
+    Card($$renderer2, {
+      title: "Push-Regeln",
+      children: ($$renderer3) => {
+        {
+          $$renderer3.push("<!--[-->");
+          $$renderer3.push(`<p class="text-muted">Lade Regeln...</p>`);
+        }
+        $$renderer3.push(`<!--]-->`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></section>`);
+  });
+}
+function AdminGroupManagement($$renderer, $$props) {
+  $$renderer.component(($$renderer2) => {
+    let users = [];
+    const countByRole = (role) => users.filter((user) => user.role === role).length;
+    const approvedByRole = (role) => users.filter((user) => user.role === role && user.status === "approved").length;
+    $$renderer2.push(`<section class="section-block"><h2 class="section-title">Gruppen</h2> <div class="grid-3">`);
+    Card($$renderer2, {
+      title: "Nutzer",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<strong>${escape_html(approvedByRole("user"))}</strong> <p class="text-muted">von ${escape_html(countByRole("user"))} insgesamt</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Materialwarte",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<strong>${escape_html(approvedByRole("materialwart"))}</strong> <p class="text-muted">von ${escape_html(countByRole("materialwart"))} insgesamt</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----> `);
+    Card($$renderer2, {
+      title: "Admins",
+      children: ($$renderer3) => {
+        $$renderer3.push(`<strong>${escape_html(approvedByRole("admin"))}</strong> <p class="text-muted">von ${escape_html(countByRole("admin"))} insgesamt</p>`);
+      },
+      $$slots: { default: true }
+    });
+    $$renderer2.push(`<!----></div></section>`);
+  });
+}
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
     let activeTab = "overview";
-    const tabs = [
-      { id: "overview", label: "Overview" },
-      { id: "observability", label: "Observability" },
-      { id: "users", label: "Users" },
-      { id: "system-monitor", label: "System Monitor" },
-      { id: "jobs", label: "Jobs" },
-      { id: "docker", label: "Docker" },
-      { id: "websocket", label: "WebSocket" },
-      { id: "feature-flags", label: "Feature Flags" },
-      { id: "database", label: "Database" },
-      { id: "audit-logs", label: "Audit Logs" },
-      { id: "log-stream", label: "Log Stream" },
-      { id: "queue", label: "Queue" },
-      { id: "redis", label: "Redis" },
-      { id: "security", label: "Security" },
-      { id: "errors", label: "Errors" },
-      { id: "api-heatmap", label: "API Heatmap" }
-    ];
+    let sections = [];
+    let tabIndex = /* @__PURE__ */ new Map();
     const tabTitles = {
-      overview: "Overview",
+      overview: "Übersicht",
+      users: "Benutzerverwaltung",
+      push: "Push-Verwaltung",
+      groups: "Gruppen",
+      settings: "Basis-Einstellungen",
       observability: "Observability",
-      users: "Users",
-      "system-monitor": "System Monitor",
+      "system-monitor": "Systemstatus",
       jobs: "Background Jobs",
       docker: "Docker",
       websocket: "WebSocket",
@@ -1103,9 +1188,52 @@ function _page($$renderer, $$props) {
       errors: "Error Tracking",
       "api-heatmap": "API Heatmap"
     };
+    const adminSections = [
+      {
+        label: "Administration",
+        tabs: [
+          { id: "overview", label: "Übersicht" },
+          { id: "users", label: "Benutzer" },
+          { id: "groups", label: "Gruppen" },
+          { id: "push", label: "Push" },
+          { id: "settings", label: "Einstellungen" }
+        ]
+      }
+    ];
+    const devSections = [
+      ...adminSections,
+      {
+        label: "Observability",
+        tabs: [
+          { id: "observability", label: "Monitoring" },
+          { id: "system-monitor", label: "Systemstatus" },
+          { id: "log-stream", label: "Logs" },
+          { id: "websocket", label: "WebSocket" },
+          { id: "database", label: "Migrationen/DB" },
+          { id: "feature-flags", label: "Feature Flags" },
+          { id: "errors", label: "Errors" },
+          { id: "api-heatmap", label: "API Heatmap" }
+        ]
+      },
+      {
+        label: "Infra",
+        tabs: [
+          { id: "jobs", label: "Jobs" },
+          { id: "queue", label: "Queue" },
+          { id: "docker", label: "Docker" },
+          { id: "redis", label: "Redis" },
+          { id: "security", label: "Security Audit" },
+          { id: "audit-logs", label: "Audit Logs" }
+        ]
+      }
+    ];
+    const getSectionsByRole = (role) => {
+      if (role === "dev") return devSections;
+      return adminSections;
+    };
     const normalizeTab = (value) => {
       const candidate = String(value ?? "").trim();
-      return tabs.some((tab) => tab.id === candidate) ? candidate : "overview";
+      return tabIndex.has(candidate) ? candidate : "overview";
     };
     const setTab = async (tab) => {
       activeTab = tab;
@@ -1113,13 +1241,16 @@ function _page($$renderer, $$props) {
       params.set("tab", tab);
       await goto(`${store_get($$store_subs ??= {}, "$page", page).url.pathname}?${params.toString()}`, {});
     };
-    onDestroy(() => {
-    });
     if (store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("tab") !== activeTab) {
       activeTab = normalizeTab(store_get($$store_subs ??= {}, "$page", page).url.searchParams.get("tab"));
     }
+    sections = getSectionsByRole(store_get($$store_subs ??= {}, "$session", session)?.role);
+    tabIndex = new Map(sections.flatMap((section) => section.tabs).map((tab) => [tab.id, tab]));
+    if (!tabIndex.has(activeTab)) {
+      activeTab = "overview";
+    }
     $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Admin Dashboard</h1></section> `);
-    if (!store_get($$store_subs ??= {}, "$session", session) || store_get($$store_subs ??= {}, "$session", session).role !== "admin") {
+    if (!store_get($$store_subs ??= {}, "$session", session) || store_get($$store_subs ??= {}, "$session", session).role !== "admin" && store_get($$store_subs ??= {}, "$session", session).role !== "dev") {
       $$renderer2.push("<!--[-->");
       Card($$renderer2, {
         title: "Kein Zugriff",
@@ -1131,12 +1262,24 @@ function _page($$renderer, $$props) {
     } else {
       $$renderer2.push("<!--[!-->");
       $$renderer2.push(`<div class="admin-layout svelte-1jef3w8">`);
-      AdminSidebar($$renderer2, { tabs, activeTab, onSelect: (tab) => void setTab(tab) });
+      AdminSidebar($$renderer2, { sections, activeTab, onSelect: (tab) => void setTab(tab) });
       $$renderer2.push(`<!----> <section class="admin-content svelte-1jef3w8">`);
-      AdminTopBar($$renderer2, {
+      HeroCard($$renderer2, {
         title: tabTitles[activeTab],
-        subtitle: "Admin Control Center",
-        onRefresh: () => void setTab(activeTab)
+        subtitle: store_get($$store_subs ??= {}, "$session", session).role === "dev" ? "DEV Ansicht" : "ADMIN Ansicht",
+        children: ($$renderer3) => {
+          $$renderer3.push(`<div class="actions">`);
+          HeroButton($$renderer3, {
+            tone: "neutral",
+            onClick: () => void setTab(activeTab),
+            children: ($$renderer4) => {
+              $$renderer4.push(`<!---->Aktualisieren`);
+            },
+            $$slots: { default: true }
+          });
+          $$renderer3.push(`<!----></div>`);
+        },
+        $$slots: { default: true }
       });
       $$renderer2.push(`<!----> `);
       if (activeTab === "overview") {
@@ -1146,111 +1289,138 @@ function _page($$renderer, $$props) {
         $$renderer2.push(`<!----></div>`);
       } else {
         $$renderer2.push("<!--[!-->");
-        if (activeTab === "observability") {
+        if (activeTab === "push") {
           $$renderer2.push("<!--[-->");
           $$renderer2.push(`<div>`);
-          AdminObservability($$renderer2);
+          AdminPushManagement($$renderer2);
           $$renderer2.push(`<!----></div>`);
         } else {
           $$renderer2.push("<!--[!-->");
-          if (activeTab === "users") {
+          if (activeTab === "groups") {
             $$renderer2.push("<!--[-->");
             $$renderer2.push(`<div>`);
-            AdminUserManagement($$renderer2);
+            AdminGroupManagement($$renderer2);
             $$renderer2.push(`<!----></div>`);
           } else {
             $$renderer2.push("<!--[!-->");
-            if (activeTab === "system-monitor") {
+            if (activeTab === "settings") {
               $$renderer2.push("<!--[-->");
               $$renderer2.push(`<div>`);
-              AdminSystemMonitor($$renderer2);
+              AdminSystemTools($$renderer2);
               $$renderer2.push(`<!----></div>`);
             } else {
               $$renderer2.push("<!--[!-->");
-              if (activeTab === "jobs") {
+              if (activeTab === "observability") {
                 $$renderer2.push("<!--[-->");
                 $$renderer2.push(`<div>`);
-                AdminJobs($$renderer2);
+                AdminObservability($$renderer2);
                 $$renderer2.push(`<!----></div>`);
               } else {
                 $$renderer2.push("<!--[!-->");
-                if (activeTab === "docker") {
+                if (activeTab === "users") {
                   $$renderer2.push("<!--[-->");
                   $$renderer2.push(`<div>`);
-                  AdminDocker($$renderer2);
+                  AdminUserManagement($$renderer2);
                   $$renderer2.push(`<!----></div>`);
                 } else {
                   $$renderer2.push("<!--[!-->");
-                  if (activeTab === "websocket") {
+                  if (activeTab === "system-monitor") {
                     $$renderer2.push("<!--[-->");
                     $$renderer2.push(`<div>`);
-                    AdminWebSocket($$renderer2);
+                    AdminSystemMonitor($$renderer2);
                     $$renderer2.push(`<!----></div>`);
                   } else {
                     $$renderer2.push("<!--[!-->");
-                    if (activeTab === "feature-flags") {
+                    if (activeTab === "jobs") {
                       $$renderer2.push("<!--[-->");
                       $$renderer2.push(`<div>`);
-                      AdminFeatureFlags($$renderer2);
+                      AdminJobs($$renderer2);
                       $$renderer2.push(`<!----></div>`);
                     } else {
                       $$renderer2.push("<!--[!-->");
-                      if (activeTab === "database") {
+                      if (activeTab === "docker") {
                         $$renderer2.push("<!--[-->");
                         $$renderer2.push(`<div>`);
-                        AdminDatabaseHealth($$renderer2);
+                        AdminDocker($$renderer2);
                         $$renderer2.push(`<!----></div>`);
                       } else {
                         $$renderer2.push("<!--[!-->");
-                        if (activeTab === "audit-logs") {
+                        if (activeTab === "websocket") {
                           $$renderer2.push("<!--[-->");
                           $$renderer2.push(`<div>`);
-                          AdminAuditLogs($$renderer2);
+                          AdminWebSocket($$renderer2);
                           $$renderer2.push(`<!----></div>`);
                         } else {
                           $$renderer2.push("<!--[!-->");
-                          if (activeTab === "log-stream") {
+                          if (activeTab === "feature-flags") {
                             $$renderer2.push("<!--[-->");
                             $$renderer2.push(`<div>`);
-                            AdminLogStream($$renderer2);
+                            AdminFeatureFlags($$renderer2);
                             $$renderer2.push(`<!----></div>`);
                           } else {
                             $$renderer2.push("<!--[!-->");
-                            if (activeTab === "queue") {
+                            if (activeTab === "database") {
                               $$renderer2.push("<!--[-->");
                               $$renderer2.push(`<div>`);
-                              AdminQueueMonitor($$renderer2);
+                              AdminDatabaseHealth($$renderer2);
                               $$renderer2.push(`<!----></div>`);
                             } else {
                               $$renderer2.push("<!--[!-->");
-                              if (activeTab === "redis") {
+                              if (activeTab === "audit-logs") {
                                 $$renderer2.push("<!--[-->");
                                 $$renderer2.push(`<div>`);
-                                AdminRedisMonitor($$renderer2);
+                                AdminAuditLogs($$renderer2);
                                 $$renderer2.push(`<!----></div>`);
                               } else {
                                 $$renderer2.push("<!--[!-->");
-                                if (activeTab === "security") {
+                                if (activeTab === "log-stream") {
                                   $$renderer2.push("<!--[-->");
                                   $$renderer2.push(`<div>`);
-                                  AdminSecurityPanel($$renderer2);
+                                  AdminLogStream($$renderer2);
                                   $$renderer2.push(`<!----></div>`);
                                 } else {
                                   $$renderer2.push("<!--[!-->");
-                                  if (activeTab === "errors") {
+                                  if (activeTab === "queue") {
                                     $$renderer2.push("<!--[-->");
                                     $$renderer2.push(`<div>`);
-                                    AdminErrorTracking($$renderer2);
+                                    AdminQueueMonitor($$renderer2);
                                     $$renderer2.push(`<!----></div>`);
                                   } else {
                                     $$renderer2.push("<!--[!-->");
-                                    if (activeTab === "api-heatmap") {
+                                    if (activeTab === "redis") {
                                       $$renderer2.push("<!--[-->");
                                       $$renderer2.push(`<div>`);
-                                      AdminApiHeatmap($$renderer2);
+                                      AdminRedisMonitor($$renderer2);
                                       $$renderer2.push(`<!----></div>`);
                                     } else {
                                       $$renderer2.push("<!--[!-->");
+                                      if (activeTab === "security") {
+                                        $$renderer2.push("<!--[-->");
+                                        $$renderer2.push(`<div>`);
+                                        AdminSecurityPanel($$renderer2);
+                                        $$renderer2.push(`<!----></div>`);
+                                      } else {
+                                        $$renderer2.push("<!--[!-->");
+                                        if (activeTab === "errors") {
+                                          $$renderer2.push("<!--[-->");
+                                          $$renderer2.push(`<div>`);
+                                          AdminErrorTracking($$renderer2);
+                                          $$renderer2.push(`<!----></div>`);
+                                        } else {
+                                          $$renderer2.push("<!--[!-->");
+                                          if (activeTab === "api-heatmap") {
+                                            $$renderer2.push("<!--[-->");
+                                            $$renderer2.push(`<div>`);
+                                            AdminApiHeatmap($$renderer2);
+                                            $$renderer2.push(`<!----></div>`);
+                                          } else {
+                                            $$renderer2.push("<!--[!-->");
+                                          }
+                                          $$renderer2.push(`<!--]-->`);
+                                        }
+                                        $$renderer2.push(`<!--]-->`);
+                                      }
+                                      $$renderer2.push(`<!--]-->`);
                                     }
                                     $$renderer2.push(`<!--]-->`);
                                   }

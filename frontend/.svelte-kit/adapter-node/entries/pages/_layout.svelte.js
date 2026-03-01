@@ -624,7 +624,7 @@ function _layout($$renderer, $$props) {
     let showUpdateBanner = false;
     String("").trim().toLowerCase() === "true";
     const navItems = [
-      { href: "/", label: "Ubersicht", icon: "home" },
+      { href: "/", label: "Übersicht", icon: "home" },
       { href: "/calendar", label: "Kalender", icon: "calendar" },
       { href: "/inventory", label: "Material", icon: "inventory" },
       { href: "/chat", label: "Chat", icon: "chat" },
@@ -740,7 +740,7 @@ function _layout($$renderer, $$props) {
     if (store_get($$store_subs ??= {}, "$session", session)) {
       $$renderer2.push("<!--[-->");
       CommandPalette($$renderer2, {
-        isAdmin: store_get($$store_subs ??= {}, "$session", session).role === "admin",
+        isAdmin: store_get($$store_subs ??= {}, "$session", session).role === "admin" || store_get($$store_subs ??= {}, "$session", session).role === "dev",
         enabled: true
       });
     } else {
@@ -759,7 +759,7 @@ function _layout($$renderer, $$props) {
       Navigation($$renderer2, {
         items: [
           ...visibleNavItems,
-          ...store_get($$store_subs ??= {}, "$session", session).role === "admin" ? [{ href: "/admin", label: "Admin", icon: "admin" }] : []
+          ...store_get($$store_subs ??= {}, "$session", session).role === "admin" || store_get($$store_subs ??= {}, "$session", session).role === "dev" ? [{ href: "/admin", label: "Admin", icon: "admin" }] : []
         ],
         currentPath: store_get($$store_subs ??= {}, "$page", page).url.pathname,
         username: store_get($$store_subs ??= {}, "$session", session).username,

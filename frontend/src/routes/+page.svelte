@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Card from "$lib/components/Card.svelte";
+  import HeroButton from "$lib/components/heroui/HeroButton.svelte";
   import Logo from "$lib/components/Logo.svelte";
   import { apiFetch } from "$lib/api";
   import { refreshAppSettings } from "$lib/app-settings";
@@ -46,7 +47,7 @@
     password = normalizedPassword;
     authLoading = true;
     try {
-      const result = await apiFetch<{ token: string; user?: { username?: string; role?: "admin" | "user" | "materialwart"; avatar_url?: string | null } }>(
+      const result = await apiFetch<{ token: string; user?: { username?: string; role?: "admin" | "dev" | "user" | "materialwart"; avatar_url?: string | null } }>(
         "/api/auth/login",
         {
         method: "POST",
@@ -149,7 +150,7 @@
 
       openResponses = responseChecks.filter(Boolean);
     } catch {
-      dashboardError = "Die Ubersicht konnte nicht vollstandig geladen werden.";
+      dashboardError = "Die Übersicht konnte nicht vollständig geladen werden.";
       pushToast(dashboardError, "error");
       upcomingEvents = [];
       lowStockItems = [];
@@ -180,7 +181,7 @@
       {#if authMode === "requested"}
         <div class="auth-confirmation">
           <p>Dein Account wurde beantragt.</p>
-          <button class="btn btn-primary" type="button" on:click={() => (authMode = "login")}>Zuruck zum Login</button>
+          <HeroButton tone="primary" type="button" onClick={() => (authMode = "login")}>Zurück zum Login</HeroButton>
         </div>
       {:else}
         <form class="auth-form" on:submit|preventDefault={authMode === "login" ? login : requestAccount}>
@@ -237,7 +238,7 @@
               authMode = authMode === "login" ? "request" : "login";
             }}
           >
-            {authMode === "login" ? "Kein Zugang? Account beantragen" : "Zuruck zum Login"}
+            {authMode === "login" ? "Kein Zugang? Account beantragen" : "Zurück zum Login"}
           </button>
 
           {#if message}
@@ -250,7 +251,7 @@
 {:else}
   <div class="page-stack">
     <section class="page-intro">
-      <h1 class="page-title">Ubersicht</h1>
+      <h1 class="page-title">Übersicht</h1>
     </section>
 
     {#if dashboardError}
@@ -258,7 +259,7 @@
     {/if}
 
     <section class="dashboard-grid">
-      <Card title="Nachste Termine" interactive={true}>
+      <Card title="Nächste Termine" interactive={true}>
         <div slot="actions">
           <span class="count-pill">{upcomingEvents.length}</span>
         </div>
@@ -275,7 +276,7 @@
                   <strong>{event.title}</strong>
                   <span class="text-muted">{new Date(event.start_at).toLocaleString("de-DE")}</span>
                 </div>
-                <a class="subtle-button btn" href="/calendar">Offnen</a>
+                <a class="subtle-button btn" href="/calendar">Öffnen</a>
               </div>
             {/each}
           </div>
@@ -290,14 +291,14 @@
         {#if loadingDashboard}
           <p class="text-muted">Laden...</p>
         {:else if lowStockItems.length === 0}
-          <p class="text-muted">Keine Eintrage.</p>
+          <p class="text-muted">Keine Einträge.</p>
         {:else}
           <div class="hairline-list">
             {#each lowStockItems as item}
               <div class="list-row">
                 <div class="list-meta">
                   <strong>{item.name}</strong>
-                  <span class="text-muted">{item.quantity} von {item.min_quantity} verfugbar</span>
+                  <span class="text-muted">{item.quantity} von {item.min_quantity} verfügbar</span>
                 </div>
                 <span class="badge badge-warning">Beobachten</span>
               </div>
@@ -306,7 +307,7 @@
         {/if}
       </Card>
 
-      <Card title="Offene Ruckmeldungen" interactive={true}>
+      <Card title="Offene Rückmeldungen" interactive={true}>
         <div slot="actions">
           <span class="count-pill">{openResponses.length}</span>
         </div>
@@ -314,7 +315,7 @@
         {#if loadingDashboard}
           <p class="text-muted">Laden...</p>
         {:else if openResponses.length === 0}
-          <p class="text-muted">Keine offenen Ruckmeldungen.</p>
+          <p class="text-muted">Keine offenen Rückmeldungen.</p>
         {:else}
           <div class="hairline-list">
             {#each openResponses.slice(0, 3) as event}

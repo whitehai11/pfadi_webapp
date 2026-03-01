@@ -92,7 +92,7 @@ type UserRecord = {
   id: string;
   email: string;
   password_hash: string;
-  role: "admin" | "user" | "materialwart";
+  role: "admin" | "dev" | "user" | "materialwart";
   status: "pending" | "approved" | "rejected";
   avatar_updated_at?: string | null;
   created_at?: string;
@@ -175,7 +175,7 @@ const clearRefreshCookie = () => {
 
 const issueAccessToken = (
   app: FastifyInstance,
-  payload: { id: string; username: string; role: "admin" | "user" | "materialwart"; status: "approved" }
+  payload: { id: string; username: string; role: "admin" | "dev" | "user" | "materialwart"; status: "approved" }
 ) => app.jwt.sign(payload, { expiresIn: "15m" });
 
 const createRefreshTokenRecord = (userId: string, rotatedFromTokenId: string | null = null) => {
@@ -503,7 +503,7 @@ export const authRoutes = async (app: FastifyInstance) => {
           expires_at: string;
           revoked_at: string | null;
           email: string;
-          role: "admin" | "user" | "materialwart";
+          role: "admin" | "dev" | "user" | "materialwart";
           status: "pending" | "approved" | "rejected";
         }
       | undefined;

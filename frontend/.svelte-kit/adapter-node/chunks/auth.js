@@ -39,6 +39,7 @@ const authHeader = () => {
 const roleLabel = (role) => {
   if (role === "user") return "Nutzer";
   if (role === "admin") return "Admin";
+  if (role === "dev") return "Dev";
   return "Materialwart";
 };
 export {

@@ -68,10 +68,10 @@
   --info-soft: var(--color-info-soft);
   --hairline: var(--color-border);
   --hairline-strong: var(--color-border);
-  --shadow-sm: none;
-  --shadow-md: none;
-  --shadow-hover: none;
-  --shadow-elev: none;
+  --shadow-sm: 0 8px 20px color-mix(in srgb, var(--color-shadow-soft) 65%, transparent);
+  --shadow-md: 0 18px 36px color-mix(in srgb, var(--color-shadow-soft) 72%, transparent);
+  --shadow-hover: 0 20px 42px color-mix(in srgb, var(--color-shadow-strong) 38%, transparent);
+  --shadow-elev: 0 16px 38px color-mix(in srgb, var(--color-shadow-soft) 64%, transparent);
   --surface-selection: var(--color-tint-soft);
   --surface-panel: var(--color-overlay);
   --surface-subtle: color-mix(in srgb, var(--color-card) 90%, var(--color-bg));
@@ -187,7 +187,10 @@ body {
   min-height: 100vh;
   font-family: var(--font-sans);
   color: var(--text);
-  background: var(--bg);
+  background:
+    radial-gradient(circle at 10% -20%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 42%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, var(--info) 10%, transparent), transparent 36%),
+    var(--bg);
 }
 
 body::selection {
@@ -516,8 +519,11 @@ h4 {
 .card {
   position: relative;
   border-radius: var(--radius-lg);
-  background: var(--card);
-  box-shadow: 0 0 0 1px var(--border-card);
+  background: var(--surface-panel);
+  backdrop-filter: blur(18px) saturate(130%);
+  -webkit-backdrop-filter: blur(18px) saturate(130%);
+  box-shadow: var(--shadow-elev);
+  border: 1px solid var(--border-card);
   transition:
     transform var(--transition-soft),
     box-shadow var(--transition-soft),
@@ -531,8 +537,8 @@ h4 {
 
 .surface-card.card-interactive:hover,
 .card:hover {
-  transform: none;
-  box-shadow: 0 0 0 1px var(--border-card);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
 }
 
 .surface-card__header {
@@ -2160,6 +2166,33 @@ h4 {
 
 .justify-center {
   justify-content: center;
+}
+
+/* Liquid glass utilities */
+.glass-surface,
+.glass-panel,
+.glass-layer {
+  background: var(--surface-panel);
+  backdrop-filter: blur(18px) saturate(132%);
+  -webkit-backdrop-filter: blur(18px) saturate(132%);
+  border: 1px solid var(--border-card);
+  box-shadow: var(--shadow-elev);
+}
+
+.glass-layer {
+  background: color-mix(in srgb, var(--surface-panel) 88%, transparent);
+}
+
+.glass-hover {
+  transition:
+    transform var(--transition-soft),
+    box-shadow var(--transition-soft),
+    background var(--transition-soft);
+}
+
+.glass-hover:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hover);
 }
 
 /* Mobile resilience */

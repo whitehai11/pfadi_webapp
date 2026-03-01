@@ -24,6 +24,13 @@ import {
   markRoomRead,
   setMessageReaction
 } from "../services/chat.service.js";
+import {
+  createGroupConversation,
+  findOrCreateDirectConversation,
+  listApprovedUsersForChat,
+  listConversationMessages,
+  listUserConversations
+} from "../ws/chat.service.js";
 import { settings } from "../config/settings.js";
 import { sendToUser } from "../services/push.service.js";
 import { parseOrReply } from "../utils/validation.js";
@@ -60,6 +67,31 @@ const chatUploadIpRateLimit = createRateLimit({
 const roomParamsSchema = z
   .object({
     roomId: z.string().uuid()
+  })
+  .strict();
+
+const conversationParamsSchema = z
+  .object({
+    conversationId: z.string().uuid()
+  })
+  .strict();
+
+const conversationQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(400).optional()
+  })
+  .strict();
+
+const directConversationSchema = z
+  .object({
+    user_id: z.string().uuid()
+  })
+  .strict();
+
+const groupConversationSchema = z
+  .object({
+    name: z.string().trim().min(1).max(120),
+    member_ids: z.array(z.string().uuid()).min(1).max(100)
   })
   .strict();
 
@@ -396,6 +428,70 @@ const messageToResponse = (message: ReturnType<typeof createChatMessage>) => ({
 });
 
 export const chatRoutes = async (app: FastifyInstance) => {
+  app.get("/chat/users", { preHandler: requireChatFeature }, async (request, reply) => {
+    const user = getApprovedUserFromRequest(request);
+    if (!user) {
+      return reply.code(403).send({ error: "Forbidden" });
+    }
+    return reply.send({ users: listApprovedUsersForChat(user.id) });
+  });
+
+  app.get("/chat/conversations", { preHandler: requireChatFeature }, async (request, reply) => {
+    const user = getApprovedUserFromRequest(request);
+    if (!user) {
+      return reply.code(403).send({ error: "Forbidden" });
+    }
+    return reply.send({ conversations: listUserConversations(user.id) });
+  });
+
+  app.post("/chat/conversations/direct", { preHandler: requireChatFeature }, async (request, reply) => {
+    const user = getApprovedUserFromRequest(request);
+    if (!user) {
+      return reply.code(403).send({ error: "Forbidden" });
+    }
+    const body = parseOrReply(reply, directConversationSchema, request.body);
+    if (!body) return;
+
+    try {
+      const conversationId = findOrCreateDirectConversation(user.id, body.user_id);
+      return reply.code(201).send({ conversation_id: conversationId });
+    } catch (error) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : "Konversation konnte nicht erstellt werden." });
+    }
+  });
+
+  app.post("/chat/conversations/group", { preHandler: requireChatFeature }, async (request, reply) => {
+    const user = getApprovedUserFromRequest(request);
+    if (!user) {
+      return reply.code(403).send({ error: "Forbidden" });
+    }
+    const body = parseOrReply(reply, groupConversationSchema, request.body);
+    if (!body) return;
+
+    try {
+      const conversationId = createGroupConversation({
+        creatorId: user.id,
+        name: body.name,
+        memberIds: body.member_ids
+      });
+      return reply.code(201).send({ conversation_id: conversationId });
+    } catch (error) {
+      return reply.code(400).send({ error: error instanceof Error ? error.message : "Gruppe konnte nicht erstellt werden." });
+    }
+  });
+
+  app.get("/chat/conversations/:conversationId/messages", { preHandler: requireChatFeature }, async (request, reply) => {
+    const user = getApprovedUserFromRequest(request);
+    if (!user) return reply.code(403).send({ error: "Forbidden" });
+    const params = parseOrReply(reply, conversationParamsSchema, request.params);
+    const query = parseOrReply(reply, conversationQuerySchema, request.query ?? {});
+    if (!params || !query) return;
+
+    return reply.send({
+      messages: listConversationMessages(params.conversationId, user.id, query.limit ?? 200)
+    });
+  });
+
   app.get("/chat/rooms", { preHandler: requireChatFeature }, async () => {
     ensureDefaultChatRoom();
     return listChatRooms();

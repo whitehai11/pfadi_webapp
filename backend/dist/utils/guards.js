@@ -1,5 +1,7 @@
 import { db } from "../db/database.js";
 import { getBooleanSetting } from "../services/app-settings.service.js";
+const isDevRole = (role) => role.toLowerCase() === "dev";
+const isAdminRole = (role) => role.toLowerCase() === "admin";
 export const getApprovedUserFromRequest = (request) => {
     const tokenUser = request.user;
     if (!tokenUser?.id)
@@ -41,7 +43,15 @@ export const requireAdmin = async (request, reply) => {
     const user = await verifyApprovedUser(request, reply);
     if (!user || reply.sent)
         return;
-    if (user.role !== "admin") {
+    if (!isAdminRole(user.role) && !isDevRole(user.role)) {
+        return reply.code(403).send({ success: false, message: "Forbidden" });
+    }
+};
+export const requireDev = async (request, reply) => {
+    const user = await verifyApprovedUser(request, reply);
+    if (!user || reply.sent)
+        return;
+    if (!isDevRole(user.role)) {
         return reply.code(403).send({ success: false, message: "Forbidden" });
     }
 };
@@ -49,7 +59,7 @@ export const requireMaterialOrAdmin = async (request, reply) => {
     const user = await verifyApprovedUser(request, reply);
     if (!user || reply.sent)
         return;
-    if (user.role !== "admin" && user.role !== "materialwart") {
+    if (!isAdminRole(user.role) && !isDevRole(user.role) && user.role !== "materialwart") {
         return reply.code(403).send({ success: false, message: "Forbidden" });
     }
 };

@@ -22,12 +22,18 @@ import {
   saveMessage,
   saveReadReceipt
 } from "./chat.service.js";
-import type { ClientEnvelope, ClientEventMap, ServerEnvelope, ServerEventMap, WsUser } from "./chat.types.js";
+import type { ChatWsClientMessage, ChatWsServerMessage, WsUser } from "./chat.types.js";
 
 type SocketState = {
   socket: WebSocket;
   user: WsUser;
+  joinedRooms: Set<string>;
+  lastSeenAt: number;
 };
+
+const backpressureLimitBytes = 512 * 1024;
+const heartbeatIntervalMs = 25_000;
+const heartbeatTimeoutMs = 70_000;
 
 const parseTokenFromCookie = (cookieHeader: string | undefined) => {
   if (!cookieHeader) return null;
@@ -66,16 +72,23 @@ const getTokenFromUpgrade = (request: IncomingMessage) => {
   return parseTokenFromCookie(typeof request.headers.cookie === "string" ? request.headers.cookie : undefined);
 };
 
-const parseClientEnvelope = (raw: string): ClientEnvelope | null => {
+const parseClientMessage = (raw: string): ChatWsClientMessage | null => {
   try {
-    const parsed = JSON.parse(raw) as ClientEnvelope;
+    const parsed = JSON.parse(raw) as ChatWsClientMessage;
     if (!parsed || typeof parsed !== "object") return null;
-    if (typeof parsed.event !== "string") return null;
-    if (!("data" in parsed)) return null;
+    if (!("type" in parsed) || typeof parsed.type !== "string") return null;
     return parsed;
   } catch {
     return null;
   }
+};
+
+const getPeerIp = (request: IncomingMessage) => {
+  const cf = request.headers["cf-connecting-ip"];
+  if (typeof cf === "string" && cf.trim()) return cf.trim();
+  const xff = request.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.trim()) return xff.split(",")[0]?.trim() || null;
+  return request.socket.remoteAddress ?? null;
 };
 
 export const setupChatGateway = (app: FastifyInstance) => {
@@ -83,14 +96,34 @@ export const setupChatGateway = (app: FastifyInstance) => {
   const socketsByUser = new Map<string, Set<WebSocket>>();
   const socketState = new Map<WebSocket, SocketState>();
 
-  const sendEvent = <E extends keyof ServerEventMap>(socket: WebSocket, event: E, data: ServerEventMap[E]) => {
+  const devLog = (state: SocketState, direction: "in" | "out", type: string, payload: unknown) => {
+    if (state.user.role !== "dev") return;
+    app.log.info(
+      {
+        ws: "chat",
+        direction,
+        type,
+        payload,
+        userId: state.user.id
+      },
+      "Chat websocket debug event"
+    );
+  };
+
+  const send = (socket: WebSocket, message: ChatWsServerMessage) => {
     if (socket.readyState !== WebSocket.OPEN) return;
-    const payload: ServerEnvelope<E> = { event, data };
-    socket.send(JSON.stringify(payload));
+    if (socket.bufferedAmount > backpressureLimitBytes) return;
+    socket.send(JSON.stringify(message));
+    recordWsMessage();
+    recordWsMetricMessage();
+    const state = socketState.get(socket);
+    if (state) {
+      devLog(state, "out", message.type, message.payload);
+    }
   };
 
   const sendError = (socket: WebSocket, code: string, message: string) => {
-    sendEvent(socket, "error", { code, message });
+    send(socket, { type: "error", payload: { code, message } });
   };
 
   const listUserConversationIds = (userId: string) => {
@@ -102,29 +135,31 @@ export const setupChatGateway = (app: FastifyInstance) => {
 
   const listOnlineUserIds = () => Array.from(socketsByUser.keys()).sort();
 
-  const broadcastToConversationMembers = <E extends keyof ServerEventMap>(
-    conversationId: string,
-    event: E,
-    data: ServerEventMap[E]
-  ) => {
+  const broadcastToJoinedMembers = (conversationId: string, message: ChatWsServerMessage) => {
     const memberIds = listConversationMemberIds(conversationId);
     for (const memberId of memberIds) {
       const targets = socketsByUser.get(memberId);
       if (!targets) continue;
       for (const target of targets) {
-        sendEvent(target, event, data);
+        const targetState = socketState.get(target);
+        if (!targetState) continue;
+        if (!targetState.joinedRooms.has(conversationId)) continue;
+        send(target, message);
       }
     }
-    recordWsBroadcast(String(event));
+    recordWsBroadcast(message.type);
   };
 
   const emitPresenceForConversation = (conversationId: string) => {
     const members = listConversationMemberIds(conversationId);
     const onlineSet = new Set(listOnlineUserIds());
     const onlineUserIds = members.filter((id) => onlineSet.has(id));
-    broadcastToConversationMembers(conversationId, "chat:presence", {
-      conversationId,
-      onlineUserIds
+    broadcastToJoinedMembers(conversationId, {
+      type: "chat.presence",
+      payload: {
+        conversationId,
+        onlineUserIds
+      }
     });
   };
 
@@ -136,7 +171,7 @@ export const setupChatGateway = (app: FastifyInstance) => {
   };
 
   const attachSocket = (socket: WebSocket, user: WsUser) => {
-    socketState.set(socket, { socket, user });
+    socketState.set(socket, { socket, user, joinedRooms: new Set(), lastSeenAt: Date.now() });
     const current = socketsByUser.get(user.id) ?? new Set<WebSocket>();
     current.add(socket);
     socketsByUser.set(user.id, current);
@@ -148,6 +183,7 @@ export const setupChatGateway = (app: FastifyInstance) => {
   const detachSocket = (socket: WebSocket) => {
     const state = socketState.get(socket);
     if (!state) return;
+    const joined = Array.from(state.joinedRooms);
     socketState.delete(socket);
 
     const userSockets = socketsByUser.get(state.user.id);
@@ -160,7 +196,9 @@ export const setupChatGateway = (app: FastifyInstance) => {
     setChatConnectionCount(socketState.size);
     setOnlineUserCount(socketsByUser.size);
     setWsMetricConnectedClients("chat", socketState.size);
-    emitPresenceForUser(state.user.id);
+    for (const conversationId of joined) {
+      emitPresenceForConversation(conversationId);
+    }
   };
 
   app.server.on("upgrade", (request, socket, head) => {
@@ -201,101 +239,155 @@ export const setupChatGateway = (app: FastifyInstance) => {
 
     wss.handleUpgrade(request, socket, head, (ws) => {
       attachSocket(ws, user);
-      emitPresenceForUser(user.id);
+      const state = socketState.get(ws);
+      if (!state) {
+        ws.close();
+        return;
+      }
+
+      app.log.info(
+        {
+          ws: "chat",
+          userId: user.id,
+          ip: getPeerIp(request)
+        },
+        "Chat websocket connected"
+      );
+
+      send(ws, {
+        type: "system.ready",
+        payload: { userId: user.id, heartbeatMs: heartbeatIntervalMs }
+      });
 
       ws.on("close", () => detachSocket(ws));
       ws.on("error", () => detachSocket(ws));
 
       ws.on("message", (buffer) => {
-        const state = socketState.get(ws);
-        if (!state) return;
+        const current = socketState.get(ws);
+        if (!current) return;
+        current.lastSeenAt = Date.now();
+        socketState.set(ws, current);
 
-        const envelope = parseClientEnvelope(String(buffer));
-        if (!envelope) {
-          sendError(ws, "invalid_payload", "Ungueltiges Event-Payload.");
+        const message = parseClientMessage(String(buffer));
+        if (!message) {
+          sendError(ws, "invalid_payload", "Ungültiges Payload.");
+          return;
+        }
+        devLog(current, "in", message.type, "payload" in message ? message.payload : null);
+
+        if (message.type === "ping") {
+          send(ws, { type: "pong", payload: { ts: new Date().toISOString() } });
           return;
         }
 
-        if (envelope.event === "chat:send") {
-          const payload = envelope.data as ClientEventMap["chat:send"];
-          const conversationId = String(payload.conversationId ?? "").trim();
-          const content = String(payload.content ?? "").trim();
-          const clientId = payload.clientId;
+        if (message.type === "room.join") {
+          const conversationId = String(message.payload?.conversationId ?? "").trim();
+          if (!conversationId) {
+            sendError(ws, "validation_error", "conversationId ist erforderlich.");
+            return;
+          }
+          if (!isConversationMember(conversationId, current.user.id)) {
+            sendError(ws, "forbidden", "Kein Zugriff auf diese Konversation.");
+            return;
+          }
+          current.joinedRooms.add(conversationId);
+          socketState.set(ws, current);
+          send(ws, { type: "room.joined", payload: { conversationId } });
+          emitPresenceForConversation(conversationId);
+          return;
+        }
 
+        if (message.type === "room.leave") {
+          const conversationId = String(message.payload?.conversationId ?? "").trim();
+          if (!conversationId) {
+            sendError(ws, "validation_error", "conversationId ist erforderlich.");
+            return;
+          }
+          current.joinedRooms.delete(conversationId);
+          socketState.set(ws, current);
+          send(ws, { type: "room.left", payload: { conversationId } });
+          emitPresenceForConversation(conversationId);
+          return;
+        }
+
+        if (message.type === "chat.send") {
+          const conversationId = String(message.payload?.conversationId ?? "").trim();
+          const content = String(message.payload?.content ?? "").trim();
+          const clientId = message.payload?.clientId;
           if (!conversationId || !content) {
             sendError(ws, "validation_error", "conversationId und content sind erforderlich.");
             return;
           }
-          if (!isConversationMember(conversationId, state.user.id)) {
+          if (!isConversationMember(conversationId, current.user.id)) {
             sendError(ws, "forbidden", "Kein Zugriff auf diese Konversation.");
             return;
           }
 
-          const message = saveMessage({
-            conversationId,
-            senderId: state.user.id,
-            content
-          });
-
-          broadcastToConversationMembers(conversationId, "chat:receive", message);
-          recordWsMessage();
-          recordWsMetricMessage();
-          sendEvent(ws, "chat:delivery", {
-            conversationId,
-            messageId: message.id,
-            clientId,
-            deliveredAt: message.created_at
+          const created = saveMessage({ conversationId, senderId: current.user.id, content });
+          broadcastToJoinedMembers(conversationId, { type: "chat.message", payload: created });
+          send(ws, {
+            type: "chat.delivery",
+            payload: { conversationId, messageId: created.id, clientId, deliveredAt: created.created_at }
           });
           return;
         }
 
-        if (envelope.event === "chat:typing") {
-          const payload = envelope.data as ClientEventMap["chat:typing"];
-          const conversationId = String(payload.conversationId ?? "").trim();
-          const isTyping = Boolean(payload.isTyping);
+        if (message.type === "chat.typing") {
+          const conversationId = String(message.payload?.conversationId ?? "").trim();
+          const isTyping = Boolean(message.payload?.isTyping);
           if (!conversationId) return;
-          if (!isConversationMember(conversationId, state.user.id)) return;
-
-          broadcastToConversationMembers(conversationId, "chat:typing", {
-            conversationId,
-            userId: state.user.id,
-            isTyping
+          if (!isConversationMember(conversationId, current.user.id)) return;
+          broadcastToJoinedMembers(conversationId, {
+            type: "chat.typing",
+            payload: { conversationId, userId: current.user.id, isTyping }
           });
           return;
         }
 
-        if (envelope.event === "chat:read") {
-          const payload = envelope.data as ClientEventMap["chat:read"];
-          const conversationId = String(payload.conversationId ?? "").trim();
-          const messageId = String(payload.messageId ?? "").trim();
+        if (message.type === "chat.read") {
+          const conversationId = String(message.payload?.conversationId ?? "").trim();
+          const messageId = String(message.payload?.messageId ?? "").trim();
           if (!conversationId || !messageId) return;
-          if (!isConversationMember(conversationId, state.user.id)) return;
+          if (!isConversationMember(conversationId, current.user.id)) return;
 
-          const receipt = saveReadReceipt({ messageId, userId: state.user.id });
+          const receipt = saveReadReceipt({ messageId, userId: current.user.id });
           if (!receipt || receipt.conversation_id !== conversationId) {
             sendError(ws, "not_found", "Nachricht nicht gefunden.");
             return;
           }
-
-          broadcastToConversationMembers(conversationId, "chat:read", {
-            conversationId,
-            messageId: receipt.message_id,
-            userId: receipt.user_id,
-            readAt: receipt.read_at
+          broadcastToJoinedMembers(conversationId, {
+            type: "chat.read",
+            payload: { conversationId, messageId: receipt.message_id, userId: receipt.user_id, readAt: receipt.read_at }
           });
           return;
         }
 
-        sendError(ws, "unsupported_event", "Event wird nicht unterstuetzt.");
+        sendError(ws, "unsupported_event", "Event nicht unterstützt.");
       });
     });
   });
 
+  const heartbeat = setInterval(() => {
+    const now = Date.now();
+    for (const [socket, state] of socketState.entries()) {
+      if (now - state.lastSeenAt > heartbeatTimeoutMs) {
+        try {
+          socket.close();
+        } catch {
+          // ignore
+        }
+        continue;
+      }
+      send(socket, { type: "pong", payload: { ts: new Date().toISOString() } });
+    }
+  }, heartbeatIntervalMs);
+
   return {
     close: () => {
-      for (const ws of socketState.keys()) {
+      clearInterval(heartbeat);
+      for (const socket of socketState.keys()) {
         try {
-          ws.close();
+          socket.close();
         } catch {
           // ignore
         }
@@ -309,3 +401,4 @@ export const setupChatGateway = (app: FastifyInstance) => {
     }
   };
 };
+

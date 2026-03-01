@@ -9,7 +9,7 @@
 <section
   id={id || undefined}
   class:card-interactive={interactive}
-  class="surface-card"
+  class="surface-card glass-surface"
   data-has-description={description ? "true" : undefined}
 >
   {#if title || eyebrow || $$slots.actions}

@@ -1,19 +1,13 @@
 <script lang="ts">
-  import { onDestroy, onMount } from "svelte";
+  import { onMount } from "svelte";
   import { fade } from "svelte/transition";
   import { goto } from "$app/navigation";
   import { page } from "$app/stores";
   import Card from "$lib/components/Card.svelte";
-  import { apiFetch } from "$lib/api";
   import { session } from "$lib/auth";
-  import { pushToast } from "$lib/toast";
-  import { get } from "svelte/store";
-  import AdminHeader from "$lib/components/admin/AdminHeader.svelte";
-  import AdminStats from "$lib/components/admin/AdminStats.svelte";
   import AdminUserManagement from "$lib/components/admin/AdminUserManagement.svelte";
   import AdminSystemTools from "$lib/components/admin/AdminSystemTools.svelte";
-  import AdminSidebar, { type AdminTabId, type AdminTabItem } from "$lib/components/admin/AdminSidebar.svelte";
-  import AdminTopBar from "$lib/components/admin/AdminTopBar.svelte";
+  import AdminSidebar, { type AdminTabId, type AdminTabItem, type AdminTabSection } from "$lib/components/admin/AdminSidebar.svelte";
   import AdminOverview from "$lib/components/admin/AdminOverview.svelte";
   import AdminObservability from "$lib/components/admin/AdminObservability.svelte";
   import AdminSystemMonitor from "$lib/components/admin/AdminSystemMonitor.svelte";
@@ -29,34 +23,25 @@
   import AdminSecurityPanel from "$lib/components/admin/AdminSecurityPanel.svelte";
   import AdminErrorTracking from "$lib/components/admin/AdminErrorTracking.svelte";
   import AdminApiHeatmap from "$lib/components/admin/AdminApiHeatmap.svelte";
+  import AdminPushManagement from "$lib/components/admin/AdminPushManagement.svelte";
+  import AdminGroupManagement from "$lib/components/admin/AdminGroupManagement.svelte";
+  import HeroCard from "$lib/components/heroui/HeroCard.svelte";
+  import HeroButton from "$lib/components/heroui/HeroButton.svelte";
 
-  type AdminStats = { totalUsers: number };
+  type SessionRole = "admin" | "dev" | "user" | "materialwart";
 
   let activeTab: AdminTabId = "overview";
-  const tabs: AdminTabItem[] = [
-    { id: "overview", label: "Overview" },
-    { id: "observability", label: "Observability" },
-    { id: "users", label: "Users" },
-    { id: "system-monitor", label: "System Monitor" },
-    { id: "jobs", label: "Jobs" },
-    { id: "docker", label: "Docker" },
-    { id: "websocket", label: "WebSocket" },
-    { id: "feature-flags", label: "Feature Flags" },
-    { id: "database", label: "Database" },
-    { id: "audit-logs", label: "Audit Logs" },
-    { id: "log-stream", label: "Log Stream" },
-    { id: "queue", label: "Queue" },
-    { id: "redis", label: "Redis" },
-    { id: "security", label: "Security" },
-    { id: "errors", label: "Errors" },
-    { id: "api-heatmap", label: "API Heatmap" }
-  ];
+  let sections: AdminTabSection[] = [];
+  let tabIndex = new Map<AdminTabId, AdminTabItem>();
 
   const tabTitles: Record<AdminTabId, string> = {
-    overview: "Overview",
+    overview: "Übersicht",
+    users: "Benutzerverwaltung",
+    push: "Push-Verwaltung",
+    groups: "Gruppen",
+    settings: "Basis-Einstellungen",
     observability: "Observability",
-    users: "Users",
-    "system-monitor": "System Monitor",
+    "system-monitor": "Systemstatus",
     jobs: "Background Jobs",
     docker: "Docker",
     websocket: "WebSocket",
@@ -71,9 +56,55 @@
     "api-heatmap": "API Heatmap"
   };
 
+  const adminSections: AdminTabSection[] = [
+    {
+      label: "Administration",
+      tabs: [
+        { id: "overview", label: "Übersicht" },
+        { id: "users", label: "Benutzer" },
+        { id: "groups", label: "Gruppen" },
+        { id: "push", label: "Push" },
+        { id: "settings", label: "Einstellungen" }
+      ]
+    }
+  ];
+
+  const devSections: AdminTabSection[] = [
+    ...adminSections,
+    {
+      label: "Observability",
+      tabs: [
+        { id: "observability", label: "Monitoring" },
+        { id: "system-monitor", label: "Systemstatus" },
+        { id: "log-stream", label: "Logs" },
+        { id: "websocket", label: "WebSocket" },
+        { id: "database", label: "Migrationen/DB" },
+        { id: "feature-flags", label: "Feature Flags" },
+        { id: "errors", label: "Errors" },
+        { id: "api-heatmap", label: "API Heatmap" }
+      ]
+    },
+    {
+      label: "Infra",
+      tabs: [
+        { id: "jobs", label: "Jobs" },
+        { id: "queue", label: "Queue" },
+        { id: "docker", label: "Docker" },
+        { id: "redis", label: "Redis" },
+        { id: "security", label: "Security Audit" },
+        { id: "audit-logs", label: "Audit Logs" }
+      ]
+    }
+  ];
+
+  const getSectionsByRole = (role: SessionRole | undefined | null) => {
+    if (role === "dev") return devSections;
+    return adminSections;
+  };
+
   const normalizeTab = (value: string | null): AdminTabId => {
     const candidate = String(value ?? "").trim() as AdminTabId;
-    return tabs.some((tab) => tab.id === candidate) ? candidate : "overview";
+    return tabIndex.has(candidate) ? candidate : "overview";
   };
 
   const setTab = async (tab: AdminTabId) => {
@@ -88,13 +119,19 @@
   };
 
   onMount(() => {
+    sections = getSectionsByRole($session?.role as SessionRole | undefined);
+    tabIndex = new Map(sections.flatMap((section) => section.tabs).map((tab) => [tab.id, tab]));
     activeTab = normalizeTab($page.url.searchParams.get("tab"));
   });
 
-  onDestroy(() => {});
-
   $: if ($page.url.searchParams.get("tab") !== activeTab) {
     activeTab = normalizeTab($page.url.searchParams.get("tab"));
+  }
+
+  $: sections = getSectionsByRole($session?.role as SessionRole | undefined);
+  $: tabIndex = new Map(sections.flatMap((section) => section.tabs).map((tab) => [tab.id, tab]));
+  $: if (!tabIndex.has(activeTab)) {
+    activeTab = "overview";
   }
 </script>
 
@@ -103,24 +140,36 @@
     <h1 class="page-title">Admin Dashboard</h1>
   </section>
 
-  {#if !$session || $session.role !== "admin"}
+  {#if !$session || ($session.role !== "admin" && $session.role !== "dev")}
     <Card title="Kein Zugriff">
       <p class="text-muted">Admin-Berechtigung erforderlich.</p>
     </Card>
   {:else}
     <div class="admin-layout">
-      <AdminSidebar {tabs} {activeTab} onSelect={(tab) => void setTab(tab)} />
+      <AdminSidebar {sections} {activeTab} onSelect={(tab) => void setTab(tab)} />
 
       <section class="admin-content">
-        <AdminTopBar
-          title={tabTitles[activeTab]}
-          subtitle="Admin Control Center"
-          onRefresh={() => void setTab(activeTab)}
-        />
+        <HeroCard title={tabTitles[activeTab]} subtitle={$session.role === "dev" ? "DEV Ansicht" : "ADMIN Ansicht"}>
+          <div class="actions">
+            <HeroButton tone="neutral" onClick={() => void setTab(activeTab)}>Aktualisieren</HeroButton>
+          </div>
+        </HeroCard>
 
         {#if activeTab === "overview"}
           <div in:fade={{ duration: 150 }}>
             <AdminOverview />
+          </div>
+        {:else if activeTab === "push"}
+          <div in:fade={{ duration: 150 }}>
+            <AdminPushManagement />
+          </div>
+        {:else if activeTab === "groups"}
+          <div in:fade={{ duration: 150 }}>
+            <AdminGroupManagement />
+          </div>
+        {:else if activeTab === "settings"}
+          <div in:fade={{ duration: 150 }}>
+            <AdminSystemTools />
           </div>
         {:else if activeTab === "observability"}
           <div in:fade={{ duration: 150 }}>

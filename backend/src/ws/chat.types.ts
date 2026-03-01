@@ -2,29 +2,7 @@
 export type WsUser = {
   id: string;
   username: string;
-  role: "admin" | "user" | "materialwart";
-};
-
-export type ChatSendPayload = {
-  conversationId: string;
-  content: string;
-  clientId?: string;
-};
-
-export type ChatTypingPayload = {
-  conversationId: string;
-  isTyping: boolean;
-};
-
-export type ChatReadPayload = {
-  conversationId: string;
-  messageId: string;
-};
-
-export type ClientEventMap = {
-  "chat:send": ChatSendPayload;
-  "chat:typing": ChatTypingPayload;
-  "chat:read": ChatReadPayload;
+  role: "admin" | "dev" | "user" | "materialwart";
 };
 
 export type ChatMessageRecord = {
@@ -36,43 +14,26 @@ export type ChatMessageRecord = {
   created_at: string;
 };
 
-export type ConversationPresence = {
-  conversationId: string;
-  onlineUserIds: string[];
-};
+export type ChatWsClientMessage =
+  | { type: "ping"; payload?: { ts?: string } }
+  | { type: "room.join"; payload: { conversationId: string } }
+  | { type: "room.leave"; payload: { conversationId: string } }
+  | { type: "chat.send"; payload: { conversationId: string; content: string; clientId?: string } }
+  | { type: "chat.typing"; payload: { conversationId: string; isTyping: boolean } }
+  | { type: "chat.read"; payload: { conversationId: string; messageId: string } };
 
-export type ServerEventMap = {
-  "chat:receive": ChatMessageRecord;
-  "chat:typing": {
-    conversationId: string;
-    userId: string;
-    isTyping: boolean;
-  };
-  "chat:read": {
-    conversationId: string;
-    messageId: string;
-    userId: string;
-    readAt: string;
-  };
-  "chat:presence": ConversationPresence;
-  "chat:delivery": {
-    conversationId: string;
-    messageId: string;
-    clientId?: string;
-    deliveredAt: string;
-  };
-  error: {
-    code: string;
-    message: string;
-  };
-};
+export type ChatWsServerMessage =
+  | { type: "system.ready"; payload: { userId: string; heartbeatMs: number } }
+  | { type: "pong"; payload: { ts: string } }
+  | { type: "room.joined"; payload: { conversationId: string } }
+  | { type: "room.left"; payload: { conversationId: string } }
+  | { type: "chat.message"; payload: ChatMessageRecord }
+  | {
+      type: "chat.delivery";
+      payload: { conversationId: string; messageId: string; clientId?: string; deliveredAt: string };
+    }
+  | { type: "chat.typing"; payload: { conversationId: string; userId: string; isTyping: boolean } }
+  | { type: "chat.read"; payload: { conversationId: string; messageId: string; userId: string; readAt: string } }
+  | { type: "chat.presence"; payload: { conversationId: string; onlineUserIds: string[] } }
+  | { type: "error"; payload: { code: string; message: string } };
 
-export type ClientEnvelope<E extends keyof ClientEventMap = keyof ClientEventMap> = {
-  event: E;
-  data: ClientEventMap[E];
-};
-
-export type ServerEnvelope<E extends keyof ServerEventMap = keyof ServerEventMap> = {
-  event: E;
-  data: ServerEventMap[E];
-};

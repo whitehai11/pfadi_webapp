@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import SegmentedControl from "$lib/components/SegmentedControl.svelte";
   import Avatar from "$lib/components/Avatar.svelte";
+  import HeroCard from "$lib/components/heroui/HeroCard.svelte";
   import { apiFetch } from "$lib/api";
   import { registerPush, unregisterPush } from "$lib/push";
   import { session, setSessionProfile } from "$lib/auth";
@@ -20,7 +21,6 @@
     name: string;
     platform: string;
     browser: string;
-    language: string;
     current: boolean;
   };
 
@@ -33,8 +33,7 @@
 
   const STORAGE = {
     pushPrefs: "pfadi_push_preferences",
-    chatSound: "pfadi_chat_sound_enabled",
-    language: "pfadi_language_preference"
+    chatSound: "pfadi_chat_sound_enabled"
   } as const;
 
   const themeOptions = [
@@ -43,27 +42,17 @@
     { value: "system", label: "System" }
   ];
 
-  const languageOptions = [
-    { value: "de", label: "Deutsch" },
-    { value: "en", label: "English" }
-  ];
-
   let message = "";
   let pushError = "";
   let pushLoading: "enable" | "disable" | "" = "";
   let sessionLoadError = "";
-
   let selectedTheme: ThemePreference = "system";
-  let selectedLanguage: "de" | "en" = "de";
+  let previousTheme: ThemePreference | null = null;
   let chatSoundEnabled = true;
   let pushPrefs: PushPreferences = { enabled: false, events: true, chat: true, tasks: true };
-
   let sessions: SessionInfo[] = [];
   let devices: DeviceInfo[] = [];
-  let previousTheme: ThemePreference | null = null;
-  let previousLanguage: "de" | "en" | null = null;
   let avatarUploadLoading = false;
-  let avatarRemoveLoading = false;
   let avatarError = "";
   let avatarPreviewUrl = "";
   let avatarPreviewFile: File | null = null;
@@ -86,12 +75,8 @@
           : /Safari\//.test(ua)
             ? "Safari"
             : "Browser";
-    const platform = (navigator as any).userAgentData?.platform || navigator.platform || "Unbekannt";
+    const platform = (navigator as { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || "Unbekannt";
     return { browser, platform };
-  };
-
-  const persistPushPrefs = () => {
-    localStorage.setItem(STORAGE.pushPrefs, JSON.stringify(pushPrefs));
   };
 
   const clearAvatarPreview = () => {
@@ -129,9 +114,7 @@
         method: "POST",
         body: formData
       });
-      setSessionProfile({
-        avatarUrl: result.avatar_url ?? null
-      });
+      setSessionProfile({ avatarUrl: result.avatar_url ?? null });
       clearAvatarPreview();
       pushToast("Profilbild gespeichert.", "success", 1200);
     } catch (err) {
@@ -142,34 +125,15 @@
     }
   };
 
-  const removeAvatar = async () => {
-    if (avatarRemoveLoading) return;
-    avatarRemoveLoading = true;
-    avatarError = "";
-    try {
-      await apiFetch("/api/auth/avatar", { method: "DELETE" });
-      setSessionProfile({ avatarUrl: null });
-      clearAvatarPreview();
-      pushToast("Profilbild entfernt.", "success", 1200);
-    } catch (err) {
-      avatarError = err instanceof Error ? err.message : "Profilbild konnte nicht entfernt werden.";
-      pushToast(avatarError, "error");
-    } finally {
-      avatarRemoveLoading = false;
-    }
+  const persistPushPrefs = () => {
+    localStorage.setItem(STORAGE.pushPrefs, JSON.stringify(pushPrefs));
   };
 
   const loadLocalPrefs = () => {
-    const storedLanguage = localStorage.getItem(STORAGE.language);
-    if (storedLanguage === "de" || storedLanguage === "en") {
-      selectedLanguage = storedLanguage;
-    }
-
     const storedChatSound = localStorage.getItem(STORAGE.chatSound);
     if (storedChatSound === "true" || storedChatSound === "false") {
       chatSoundEnabled = storedChatSound === "true";
     }
-
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE.pushPrefs) || "{}");
       pushPrefs = {
@@ -204,12 +168,11 @@
       name: `${browser} auf ${platform}`,
       platform,
       browser,
-      language: navigator.language || "de",
       current: true
     };
 
     try {
-      const result = await apiFetch<any[]>("/api/auth/sessions", { toastOnError: false });
+      const result = await apiFetch<Array<Record<string, unknown>>>("/api/auth/sessions", { toastOnError: false });
       if (!Array.isArray(result) || result.length === 0) {
         sessions = [fallbackSession];
         devices = [fallbackDevice];
@@ -225,16 +188,15 @@
 
       devices = result.map((item, index) => ({
         id: String(item.id ?? `device-${index}`),
-        name: String(item.device_name ?? item.user_agent ?? `Geraet ${index + 1}`),
+        name: String(item.device_name ?? item.user_agent ?? `Gerät ${index + 1}`),
         platform: String(item.platform ?? platform),
         browser: String(item.browser ?? browser),
-        language: String(item.language ?? navigator.language ?? "de"),
         current: Boolean(item.current)
       }));
     } catch {
       sessions = [fallbackSession];
       devices = [fallbackDevice];
-      sessionLoadError = "Nur aktuelle Sitzung verfuegbar.";
+      sessionLoadError = "Nur aktuelle Sitzung verfügbar.";
     }
   };
 
@@ -299,13 +261,6 @@
   }
 
   $: previousTheme = selectedTheme;
-
-  $: if (previousLanguage !== null && selectedLanguage !== previousLanguage) {
-    localStorage.setItem(STORAGE.language, selectedLanguage);
-    pushToast("Sprache gespeichert.", "success", 1000);
-  }
-
-  $: previousLanguage = selectedLanguage;
 </script>
 
 <div class="page-stack">
@@ -313,14 +268,9 @@
     <h1 class="page-title">Einstellungen</h1>
   </section>
 
-  <section class="settings-section">
-    <h2 class="section-title">Profil</h2>
+  <HeroCard title="Profil">
     <div class="settings-profile">
-      <Avatar
-        name={$session?.username || "User"}
-        avatarUrl={avatarPreviewUrl || $session?.avatarUrl || null}
-        size={96}
-      />
+      <Avatar name={$session?.username || "User"} avatarUrl={avatarPreviewUrl || $session?.avatarUrl || null} size={96} />
       <div class="settings-profile__actions">
         <input
           bind:this={avatarInput}
@@ -329,14 +279,11 @@
           accept="image/png,image/jpeg,image/webp"
           on:change={(event) => applyAvatarFile((event.currentTarget as HTMLInputElement).files?.[0] ?? null)}
         />
-        <button class="btn btn-outline" type="button" on:click={() => avatarInput?.click()} disabled={avatarUploadLoading || avatarRemoveLoading}>
-          Bild wahlen
+        <button class="btn btn-outline" type="button" on:click={() => avatarInput?.click()} disabled={avatarUploadLoading}>
+          Bild wählen
         </button>
-        <button class="btn btn-primary" type="button" on:click={uploadAvatar} disabled={!avatarPreviewFile || avatarUploadLoading || avatarRemoveLoading}>
+        <button class="btn btn-primary" type="button" on:click={uploadAvatar} disabled={!avatarPreviewFile || avatarUploadLoading}>
           {avatarUploadLoading ? "Speichern..." : "Speichern"}
-        </button>
-        <button class="btn btn-danger" type="button" on:click={removeAvatar} disabled={avatarRemoveLoading || avatarUploadLoading || (!$session?.avatarUrl && !avatarPreviewFile)}>
-          {avatarRemoveLoading ? "Entfernen..." : "Entfernen"}
         </button>
       </div>
     </div>
@@ -346,15 +293,13 @@
     {#if avatarError}
       <p class="status-banner error">{avatarError}</p>
     {/if}
-  </section>
+  </HeroCard>
 
-  <section class="settings-section">
-    <h2 class="section-title">Design</h2>
+  <HeroCard title="Design">
     <SegmentedControl bind:value={selectedTheme} options={themeOptions} ariaLabel="Theme" />
-  </section>
+  </HeroCard>
 
-  <section class="settings-section">
-    <h2 class="section-title">Benachrichtigungen</h2>
+  <HeroCard title="Benachrichtigungen">
     <div class="actions">
       <button class="btn btn-primary" type="button" disabled={Boolean(pushLoading)} on:click={enablePush}>
         {pushLoading === "enable" ? "Aktiviere..." : "Push aktivieren"}
@@ -424,10 +369,9 @@
     {#if pushError}
       <p class="status-banner error">{pushError}</p>
     {/if}
-  </section>
+  </HeroCard>
 
-  <section class="settings-section">
-    <h2 class="section-title">Sitzungen</h2>
+  <HeroCard title="Sitzungen">
     <div class="hairline-list">
       {#each sessions as sessionItem}
         <div class="list-row">
@@ -444,44 +388,26 @@
     {#if sessionLoadError}
       <p class="text-muted">{sessionLoadError}</p>
     {/if}
-  </section>
+  </HeroCard>
 
-  <section class="settings-section">
-    <h2 class="section-title">Geraete</h2>
+  <HeroCard title="Geräte">
     <div class="hairline-list">
       {#each devices as device}
         <div class="list-row">
           <div class="list-meta">
             <strong>{device.name}</strong>
-            <span class="text-muted">{device.browser} · {device.platform} · {device.language}</span>
+            <span class="text-muted">{device.browser} · {device.platform}</span>
           </div>
           <span class={device.current ? "badge badge-success" : "badge badge-secondary"}>
-            {device.current ? "Dieses Geraet" : "Bekannt"}
+            {device.current ? "Dieses Gerät" : "Bekannt"}
           </span>
         </div>
       {/each}
     </div>
-  </section>
-
-  <section class="settings-section">
-    <h2 class="section-title">Sprache</h2>
-    <SegmentedControl bind:value={selectedLanguage} options={languageOptions} ariaLabel="Sprache" />
-  </section>
+  </HeroCard>
 </div>
 
 <style>
-  .settings-section {
-    display: grid;
-    gap: var(--space-2);
-    padding: var(--space-2) 0;
-    border-top: 1px solid var(--surface-border);
-  }
-
-  .settings-section:first-of-type {
-    border-top: 0;
-    padding-top: 0;
-  }
-
   .settings-profile {
     display: flex;
     align-items: center;
