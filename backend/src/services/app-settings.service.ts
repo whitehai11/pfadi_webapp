@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import { db, nowIso } from "../db/database.js";
 
 export const getSettingValue = (key: string): string | null => {

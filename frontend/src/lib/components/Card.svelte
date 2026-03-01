@@ -3,9 +3,11 @@
   export let description = "";
   export let eyebrow = "";
   export let interactive = false;
+  export let id = "";
 </script>
 
 <section
+  id={id || undefined}
   class:card-interactive={interactive}
   class="surface-card"
   data-has-description={description ? "true" : undefined}

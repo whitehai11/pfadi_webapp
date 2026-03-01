@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import crypto from "node:crypto";
 const scryptAsync = (password, salt, keylen) => {
     return new Promise((resolve, reject) => {

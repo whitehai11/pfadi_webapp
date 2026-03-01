@@ -16,8 +16,10 @@
     | "sparkles"
     | "chevron"
     | "person"
-    | "chat" = "sparkles";
-  export let size = 18;
+    | "chat"
+    | "moon"
+    | "sun" = "sparkles";
+  export let size = 16;
 </script>
 
 <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -45,6 +47,10 @@
     <path fill="currentColor" d="M12 12a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0 2c4.4 0 8 2.2 8 5v3H4v-3c0-2.8 3.6-5 8-5z" />
   {:else if name === "chat"}
     <path fill="currentColor" d="M5 4h14a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H9l-5 4v-4H5a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h1v1.8L8.2 16H19a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1H5z" />
+  {:else if name === "moon"}
+    <path fill="currentColor" d="M14.7 2.3a8.5 8.5 0 1 0 7 12.6 1 1 0 0 0-1.2-1.4A6.5 6.5 0 0 1 12 4.9a6.6 6.6 0 0 1 1.3-3.9 1 1 0 0 0-1.3-1.4 8.4 8.4 0 0 0 2.7 1.7z" />
+  {:else if name === "sun"}
+    <path fill="currentColor" d="M12 4a1 1 0 0 0 1-1V1h-2v2a1 1 0 0 0 1 1zm0 16a1 1 0 0 0-1 1v2h2v-2a1 1 0 0 0-1-1zm8-9h2V9h-2a1 1 0 0 0 0 2zM2 11h2a1 1 0 0 0 0-2H2v2zm15.7-5.3l1.4-1.4-1.4-1.4-1.4 1.4a1 1 0 1 0 1.4 1.4zM6.3 17.7l-1.4 1.4 1.4 1.4 1.4-1.4a1 1 0 1 0-1.4-1.4zm11.4 1.4l1.4 1.4 1.4-1.4-1.4-1.4a1 1 0 1 0-1.4 1.4zM6.3 6.3a1 1 0 0 0 1.4-1.4L6.3 3.5 4.9 4.9l1.4 1.4zM12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z" />
   {:else if name === "chevron"}
     <path fill="currentColor" d="M8.6 5.6L15 12l-6.4 6.4 1.4 1.4L17.8 12 10 4.2 8.6 5.6z" />
   {:else}

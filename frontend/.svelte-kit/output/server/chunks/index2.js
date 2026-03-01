@@ -1,6 +1,7 @@
-import { b as HYDRATION_START, a as HYDRATION_END, a4 as STALE_REACTION, a5 as set_ssr_context, _ as ssr_context, a6 as push, a7 as pop, a3 as subscribe_to_store, a8 as ELEMENT_PRESERVE_ATTRIBUTE_CASE, a9 as ELEMENT_IS_INPUT, aa as ELEMENT_IS_NAMESPACED } from "./context.js";
+import { b as HYDRATION_START, a as HYDRATION_END, $ as STALE_REACTION, a0 as subscribe_to_store, a1 as ELEMENT_PRESERVE_ATTRIBUTE_CASE, a2 as ELEMENT_IS_INPUT, a3 as ELEMENT_IS_NAMESPACED } from "./utils2.js";
 import { e as escape_html } from "./escaping.js";
 import { clsx as clsx$1 } from "clsx";
+import { b as set_ssr_context, a as ssr_context, p as push, c as pop } from "./context.js";
 import * as devalue from "devalue";
 const DOM_BOOLEAN_ATTRIBUTES = [
   "allowfullscreen",
@@ -904,6 +905,10 @@ function attr_class(value, hash, directives) {
   var result = to_class(value, hash, directives);
   return result ? ` class="${escape_html(result, true)}"` : "";
 }
+function attr_style(value, directives) {
+  var result = to_style(value, directives);
+  return result ? ` style="${escape_html(result, true)}"` : "";
+}
 function store_get(store_values, store_name, store) {
   if (store_name in store_values && store_values[store_name][0] === store) {
     return store_values[store_name][2];
@@ -965,6 +970,7 @@ export {
   sanitize_slots as g,
   head as h,
   is_passive_event as i,
+  attr_style as j,
   render as r,
   store_get as s,
   unsubscribe_stores as u

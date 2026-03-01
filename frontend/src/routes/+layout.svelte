@@ -1,20 +1,69 @@
 <script lang="ts">
+  /*
+   ███╗   ███╗ █████╗ ██████╗  ██████╗
+   ████╗ ████║██╔══██╗██╔══██╗██╔═══██╗
+   ██╔████╔██║███████║██████╔╝██║   ██║
+   ██║╚██╔╝██║██╔══██║██╔══██╗██║   ██║
+   ██║ ╚═╝ ██║██║  ██║██║  ██║╚██████╔╝
+   ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝
+
+   engineered by Maro Elias Goth
+  */
+  import { browser } from "$app/environment";
   import { page } from "$app/stores";
   import Navigation from "$lib/components/Navigation.svelte";
+  import CommandPalette from "$lib/components/CommandPalette.svelte";
+  import Toaster from "$lib/components/Toaster.svelte";
   import UpdateBanner from "$lib/components/UpdateBanner.svelte";
   import { apiFetch } from "$lib/api";
   import { appSettings, refreshAppSettings, resetAppSettings } from "$lib/app-settings";
-  import { session, restoreSession, clearToken, roleLabel } from "$lib/auth";
+  import { session, restoreSession, clearToken, roleLabel, setSessionProfile, setToken } from "$lib/auth";
   import { registerPush } from "$lib/push";
+  import { appliedTheme, initTheme, toggleTheme } from "$lib/theme";
+  import { activeOverlayId, closeOverlay, toggleOverlay } from "$lib/overlay";
   import "$lib/styles/app.css";
   import { onDestroy, onMount } from "svelte";
   import { get } from "svelte/store";
 
+  const NAV_OVERLAY_ID = "main-navigation";
   let navOpen = false;
+  let previousPath = "";
   let versionPollHandle: number | null = null;
+  let tokenRefreshHandle: number | null = null;
   let currentVersion = "";
   let pendingVersion = "";
   let showUpdateBanner = false;
+  const signatureFlagKey = "__PFADI_SIGNATURE_LOGGED__" as const;
+  const buildVersion = String(import.meta.env.VITE_APP_VERSION ?? "dev");
+  const commitHash = String(import.meta.env.VITE_GIT_COMMIT ?? "dev");
+  const appEnvironment = String(import.meta.env.MODE ?? "development");
+  const showSignatureOverride = String(import.meta.env.VITE_SHOW_SIGNATURE ?? "").trim().toLowerCase() === "true";
+
+  const initializePfadiMeta = () => {
+    if (!browser) return;
+    if (!window.__PFADI_META__) {
+      window.__PFADI_META__ = {
+        author: "Maro Elias Goth",
+        build: buildVersion,
+        commit: commitHash,
+        engineered: true,
+        environment: appEnvironment
+      };
+    }
+  };
+
+  const logSignatureOnce = () => {
+    if (!browser) return;
+    if (!(import.meta.env.DEV || showSignatureOverride)) return;
+    const win = window as Window & { __PFADI_SIGNATURE_LOGGED__?: boolean };
+    if (win[signatureFlagKey]) return;
+    win[signatureFlagKey] = true;
+    console.log(
+      "%cPfadi Orga\n%cengineered by Maro Elias Goth",
+      "font-size: 18px; font-weight: bold; color: #0A2540;",
+      "font-size: 12px; color: #666;"
+    );
+  };
 
   const navItems = [
     { href: "/", label: "Ubersicht", icon: "home" as const },
@@ -56,6 +105,35 @@
       clearInterval(versionPollHandle);
       versionPollHandle = null;
     }
+  };
+
+  const stopTokenRefresh = () => {
+    if (tokenRefreshHandle !== null) {
+      clearInterval(tokenRefreshHandle);
+      tokenRefreshHandle = null;
+    }
+  };
+
+  const refreshToken = async () => {
+    if (!get(session)) return;
+    try {
+      const result = await apiFetch("/api/auth/refresh", { method: "POST", toastOnError: false });
+      if (result?.token) {
+        setToken(result.token);
+      }
+    } catch {
+      clearToken();
+      resetAppSettings();
+      stopVersionPolling();
+      stopTokenRefresh();
+    }
+  };
+
+  const startTokenRefresh = () => {
+    stopTokenRefresh();
+    tokenRefreshHandle = window.setInterval(() => {
+      void refreshToken();
+    }, 10 * 60 * 1000);
   };
 
   const fetchSystemVersion = async () => {
@@ -100,19 +178,38 @@
   };
 
   onMount(() => {
+    initializePfadiMeta();
+    logSignatureOnce();
+
     const handleOnline = () => {
       if (get(session)) {
         void checkForVersionUpdate();
       }
     };
 
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeOverlay();
+      }
+    };
+
     window.addEventListener("online", handleOnline);
+    window.addEventListener("keydown", handleKeyDown);
 
     const init = async () => {
+      initTheme();
       restoreSession();
       if (get(session)) {
         try {
-          await apiFetch("/api/auth/me");
+          const profile = await apiFetch<{ username: string; role: "admin" | "user" | "materialwart"; avatar_url?: string | null }>(
+            "/api/auth/me",
+            { toastOnError: false }
+          );
+          setSessionProfile({
+            username: profile.username,
+            role: profile.role,
+            avatarUrl: profile.avatar_url ?? null
+          });
           await refreshAppSettings();
         } catch {
           clearToken();
@@ -134,18 +231,21 @@
 
     return () => {
       window.removeEventListener("online", handleOnline);
+      window.removeEventListener("keydown", handleKeyDown);
       stopVersionPolling();
     };
   });
 
   onDestroy(() => {
     stopVersionPolling();
+    stopTokenRefresh();
   });
 
   $: if (!get(session)) {
-    navOpen = false;
+    closeOverlay();
     resetAppSettings();
     stopVersionPolling();
+    stopTokenRefresh();
     currentVersion = "";
     pendingVersion = "";
     showUpdateBanner = false;
@@ -155,7 +255,18 @@
     void startVersionPolling();
   }
 
+  $: if ($session && tokenRefreshHandle === null) {
+    startTokenRefresh();
+  }
+
   $: visibleNavItems = navItems.filter((item) => item.href !== "/chat" || $appSettings.chatEnabled);
+
+  $: navOpen = $activeOverlayId === NAV_OVERLAY_ID;
+
+  $: if ($page.url.pathname !== previousPath) {
+    previousPath = $page.url.pathname;
+    closeOverlay();
+  }
 </script>
 
 <svelte:head>
@@ -163,6 +274,11 @@
 </svelte:head>
 
 <div class="app-shell">
+  <Toaster />
+  {#if $session}
+    <CommandPalette isAdmin={$session.role === "admin"} enabled={true} />
+  {/if}
+
   <UpdateBanner
     visible={showUpdateBanner}
     version={pendingVersion}
@@ -179,9 +295,21 @@
       currentPath={$page.url.pathname}
       username={$session.username}
       role={roleLabel($session.role)}
+      avatarUrl={$session.avatarUrl ?? null}
+      overlayId={NAV_OVERLAY_ID}
       open={navOpen}
-      onToggle={() => (navOpen = !navOpen)}
-      onLogout={clearToken}
+      onToggle={() => toggleOverlay(NAV_OVERLAY_ID)}
+      onLogout={async () => {
+        closeOverlay();
+        try {
+          await apiFetch("/api/auth/logout", { method: "POST", toastOnError: false });
+        } catch {
+          // best effort
+        }
+        clearToken();
+      }}
+      theme={$appliedTheme}
+      onToggleTheme={toggleTheme}
     />
   {/if}
 

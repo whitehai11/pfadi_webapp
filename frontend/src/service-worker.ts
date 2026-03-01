@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+// engineered by Maro Elias Goth
 const sw = self as unknown as ServiceWorkerGlobalScope;
 const CACHE_NAME = "pfadi-shell-v2";
 

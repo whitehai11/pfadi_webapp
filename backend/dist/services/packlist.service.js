@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import { randomUUID } from "node:crypto";
 import { db, nowIso, runInTransaction } from "../db/database.js";
 export const getPacklistByEvent = (eventId) => {

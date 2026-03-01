@@ -1,3 +1,5 @@
+// engineered by Maro Elias Goth
 import { applyMigrations } from "./migrate-runner.js";
+import { logger } from "../utils/logger.js";
 applyMigrations();
-console.log("Migrations complete.");
+logger.info("Migrations complete");

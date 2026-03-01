@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyInstance } from "fastify";
 import { requireAuth } from "../utils/guards.js";
 import { getSystemVersion } from "../services/version.service.js";

@@ -5,10 +5,32 @@ const getToken = () => {
   if (typeof localStorage === "undefined") return null;
   return localStorage.getItem(tokenKey);
 };
+const setToken = (token) => {
+  if (typeof localStorage === "undefined") return;
+  localStorage.setItem(tokenKey, token);
+  const parsed = parseToken(token);
+  if (!parsed) {
+    session.set(null);
+    return;
+  }
+  session.update((current) => ({
+    ...parsed,
+    avatarUrl: current?.avatarUrl ?? null
+  }));
+};
 const clearToken = () => {
   if (typeof localStorage === "undefined") return;
   localStorage.removeItem(tokenKey);
   session.set(null);
+};
+const parseToken = (token) => {
+  try {
+    const payload = token.split(".")[1];
+    const decoded = JSON.parse(atob(payload));
+    return { id: decoded.id, username: decoded.username ?? decoded.email, role: decoded.role };
+  } catch {
+    return null;
+  }
 };
 const authHeader = () => {
   const token = getToken();
@@ -20,8 +42,9 @@ const roleLabel = (role) => {
   return "Materialwart";
 };
 export {
-  authHeader as a,
+  session as a,
+  authHeader as b,
   clearToken as c,
   roleLabel as r,
-  session as s
+  setToken as s
 };

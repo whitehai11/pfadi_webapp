@@ -24,18 +24,17 @@
 
 <div class="page-stack">
   <section class="page-intro">
-    <p class="page-kicker">Packlisten</p>
-    <h1 class="page-title">Vorbereitungen pro Termin bündeln.</h1>
-    <p class="page-description">Jeder Termin erhält eine eigene Übersicht für Material, Fortschritt und offene Punkte.</p>
+    <h1 class="page-title">Packlisten</h1>
   </section>
 
-  <Card title="Termine mit Packlisten" description="Wähle einen Termin, um die Packliste zu öffnen oder zu vervollständigen.">
+  <section class="page-stack">
+    <h2 class="section-title">Termine</h2>
     {#if loading}
-      <p class="text-muted">Lade Termine...</p>
+      <p class="text-muted">Laden...</p>
     {:else if error}
       <p class="status-banner error">{error}</p>
     {:else if events.length === 0}
-      <p class="text-muted">Keine Termine vorhanden.</p>
+      <p class="text-muted">Keine Termine.</p>
     {:else}
       <div class="card-grid">
         {#each events as event}
@@ -55,5 +54,5 @@
         {/each}
       </div>
     {/if}
-  </Card>
+  </section>
 </div>

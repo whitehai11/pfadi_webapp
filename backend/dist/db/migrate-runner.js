@@ -1,6 +1,8 @@
+// engineered by Maro Elias Goth
 import fs from "node:fs";
 import path from "node:path";
 import { db, nowIso } from "./database.js";
+import { logger } from "../utils/logger.js";
 export const applyMigrations = () => {
     const migrationsDir = path.resolve("./src/db/migrations");
     db.exec(`CREATE TABLE IF NOT EXISTS migrations (
@@ -23,6 +25,6 @@ export const applyMigrations = () => {
             db.prepare("INSERT INTO migrations (name, applied_at) VALUES (?, ?)").run(file, nowIso());
         });
         transaction();
-        console.log(`Applied migration ${file}`);
+        logger.info("Applied database migration", { migration: file });
     }
 };

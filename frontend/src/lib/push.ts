@@ -1,4 +1,5 @@
-﻿import { apiFetch } from "./api";
+// engineered by Maro Elias Goth
+import { apiFetch } from "./api";
 
 const urlBase64ToUint8Array = (base64String: string) => {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -13,7 +14,7 @@ const urlBase64ToUint8Array = (base64String: string) => {
 
 export const registerPush = async () => {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-    throw new Error("Push nicht unterstützt");
+    throw new Error("Push nicht unterst�tzt");
   }
 
   const registration = await navigator.serviceWorker.ready;

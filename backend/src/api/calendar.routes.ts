@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { createEvent, deleteEvent, getEvent, listEvents, updateEvent } from "../services/calendar.service.js";

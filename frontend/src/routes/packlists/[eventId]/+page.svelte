@@ -5,6 +5,7 @@
   import SegmentedControl from "$lib/components/SegmentedControl.svelte";
   import { apiFetch } from "$lib/api";
   import { session } from "$lib/auth";
+  import { pushToast } from "$lib/toast";
 
   let packlist: any = null;
   let items: any[] = [];
@@ -14,6 +15,10 @@
 
   let selectedItem = "";
   let status = "missing";
+  let createPacklistSubmitting = false;
+  let addItemSubmitting = false;
+  let updateStatusSubmittingId = "";
+  let addItemError = "";
 
   const statusOptions = [
     { value: "missing", label: "Fehlt" },
@@ -40,16 +45,29 @@
   };
 
   const createPacklist = async () => {
+    if (createPacklistSubmitting) return;
+    createPacklistSubmitting = true;
     try {
       await apiFetch(`/api/packlists/${eventId}`, { method: "POST" });
+      pushToast("Packliste erstellt.", "success");
       await load();
     } catch {
       error = "Packliste konnte nicht erstellt werden.";
+      pushToast(error, "error");
+    } finally {
+      createPacklistSubmitting = false;
     }
   };
 
   const addItem = async () => {
-    if (!selectedItem) return;
+    if (addItemSubmitting) return;
+    addItemError = "";
+    if (!selectedItem) {
+      addItemError = "Material erforderlich.";
+      return;
+    }
+
+    addItemSubmitting = true;
     try {
       await apiFetch(`/api/packlists/${packlist.id}/items`, {
         method: "PUT",
@@ -57,18 +75,41 @@
       });
       selectedItem = "";
       status = "missing";
+      pushToast("Eintrag hinzugefugt.", "success");
       await load();
     } catch {
       error = "Packlisteneintrag konnte nicht hinzugefügt werden.";
+      pushToast(error, "error");
+    } finally {
+      addItemSubmitting = false;
     }
   };
 
   const updateStatus = async (itemId: string, newStatus: string) => {
-    await apiFetch(`/api/packlists/items/${itemId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status: newStatus })
-    });
-    await load();
+    try {
+      await apiFetch(`/api/packlists/items/${itemId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: newStatus })
+      });
+      pushToast("Status aktualisiert.", "success", 1500);
+      await load();
+    } catch {
+      error = "Status konnte nicht aktualisiert werden.";
+      pushToast(error, "error");
+      console.error("[packlists] updateStatus failed", { itemId, newStatus });
+    }
+  };
+
+  const updateStatusAction = async (itemId: string, newStatus: string) => {
+    if (updateStatusSubmittingId === itemId) return;
+    updateStatusSubmittingId = itemId;
+    try {
+      await updateStatus(itemId, newStatus);
+    } catch (err) {
+      console.error("[packlists] updateStatus failed", { itemId, newStatus, err });
+    } finally {
+      updateStatusSubmittingId = "";
+    }
   };
 
   const statusBadge = (value: string) => {
@@ -90,9 +131,7 @@
 
 <div class="page-stack">
   <section class="page-intro">
-    <p class="page-kicker">Packliste</p>
-    <h1 class="page-title">Material für einen Termin gezielt vorbereiten.</h1>
-    <p class="page-description">Fortschritt, fehlende Einträge und Statusänderungen liegen in einer kompakten Übersicht.</p>
+    <h1 class="page-title">Packliste</h1>
   </section>
 
   {#if error}
@@ -100,20 +139,25 @@
   {/if}
 
   {#if loading}
-    <Card title="Packliste" description="Die Daten werden geladen.">
-      <p class="text-muted">Einen Moment bitte…</p>
+    <Card title="Packliste">
+      <p class="text-muted">Laden...</p>
     </Card>
   {:else if !packlist}
-    <Card title="Keine Packliste vorhanden" description="Für diesen Termin wurde noch keine Packliste angelegt.">
+    <Card title="Keine Packliste">
       {#if canEdit($session?.role)}
         <div class="actions">
-          <button class="btn btn-primary" type="button" on:click={createPacklist}>Packliste erstellen</button>
+          <button class="btn btn-primary" type="button" on:click={createPacklist} disabled={createPacklistSubmitting}>
+            {#if createPacklistSubmitting}
+              <span class="btn-spinner" aria-hidden="true"></span>
+            {/if}
+            {createPacklistSubmitting ? "Erstellen..." : "Packliste erstellen"}
+          </button>
         </div>
       {/if}
     </Card>
   {:else}
     <section class="split-grid">
-      <Card title="Fortschritt" description="Wie weit die Vorbereitung bereits fortgeschritten ist.">
+      <Card title="Fortschritt">
         <div class="metric">
           <div class="metric__row">
             <span class="metric__value">{progress()}%</span>
@@ -130,9 +174,9 @@
         </div>
       </Card>
 
-      <Card title="Offene Punkte" description="Material, das noch vorbereitet oder gepackt werden muss.">
+      <Card title="Offene Punkte">
         {#if missingItems().length === 0}
-          <p class="text-muted">Keine offenen Einträge.</p>
+          <p class="text-muted">Keine offenen Punkte.</p>
         {:else}
           <div class="hairline-list">
             {#each missingItems() as item}
@@ -148,41 +192,67 @@
       </Card>
     </section>
 
-    <Card title="Packlisteneinträge" description="Jeder Eintrag lässt sich direkt im jeweiligen Status aktualisieren.">
-      <div class="card-grid">
-        {#each items as item}
-          <Card
-            title={inventory.find((entry) => entry.id === item.inventory_item_id)?.name ?? item.inventory_item_id}
-            description="Status des Materials für diesen Termin."
-            interactive={true}
-          >
-            <div slot="actions">
-              <span class={`badge ${statusBadge(item.status)}`}>{item.status}</span>
-            </div>
-
-            {#if canEdit($session?.role)}
-              <div class="actions">
-                <button class="btn btn-outline" type="button" on:click={() => updateStatus(item.id, "missing")}>Fehlt</button>
-                <button class="btn btn-outline" type="button" on:click={() => updateStatus(item.id, "prepared")}>Vorbereitet</button>
-                <button class="btn btn-primary" type="button" on:click={() => updateStatus(item.id, "packed")}>Gepackt</button>
+    <Card title="Packlisteneinträge">
+      {#if items.length === 0}
+        <p class="text-muted">Keine Einträge.</p>
+      {:else}
+        <div class="hairline-list">
+          {#each items as item}
+            <div class="list-row">
+              <div class="list-meta">
+                <strong>{inventory.find((entry) => entry.id === item.inventory_item_id)?.name ?? item.inventory_item_id}</strong>
+                <span class={`badge ${statusBadge(item.status)}`}>{item.status}</span>
               </div>
-            {/if}
-          </Card>
-        {/each}
-      </div>
+
+              {#if canEdit($session?.role)}
+                <div class="actions">
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    disabled={updateStatusSubmittingId === item.id}
+                    on:click={() => updateStatusAction(item.id, "missing")}
+                  >
+                    {updateStatusSubmittingId === item.id ? "Speichern..." : "Fehlt"}
+                  </button>
+                  <button
+                    class="btn btn-outline"
+                    type="button"
+                    disabled={updateStatusSubmittingId === item.id}
+                    on:click={() => updateStatusAction(item.id, "prepared")}
+                  >
+                    {updateStatusSubmittingId === item.id ? "Speichern..." : "Vorbereitet"}
+                  </button>
+                  <button
+                    class="btn btn-primary"
+                    type="button"
+                    disabled={updateStatusSubmittingId === item.id}
+                    on:click={() => updateStatusAction(item.id, "packed")}
+                  >
+                    {updateStatusSubmittingId === item.id ? "Speichern..." : "Gepackt"}
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </Card>
 
     {#if canEdit($session?.role)}
-      <Card title="Eintrag hinzufügen" description="Material auswählen und den Ausgangsstatus festlegen.">
+      <section class="page-stack">
+        <h2 class="section-title">Eintrag hinzufügen</h2>
         <div class="split-grid">
           <div class="field">
             <label for="inventory">Material</label>
-            <select id="inventory" class="select" bind:value={selectedItem}>
+            <select id="inventory" class="select" class:input-invalid={Boolean(addItemError)} bind:value={selectedItem}>
               <option value="">Bitte wählen</option>
               {#each inventory as inv}
                 <option value={inv.id}>{inv.name} ({inv.location})</option>
               {/each}
             </select>
+            {#if addItemError}
+              <p class="field-error">{addItemError}</p>
+            {/if}
           </div>
 
           <div class="field">
@@ -192,9 +262,14 @@
         </div>
 
         <div class="actions">
-          <button class="btn btn-primary" type="button" on:click={addItem}>Hinzufügen</button>
+          <button class="btn btn-primary" type="button" on:click={addItem} disabled={addItemSubmitting}>
+            {#if addItemSubmitting}
+              <span class="btn-spinner" aria-hidden="true"></span>
+            {/if}
+            {addItemSubmitting ? "Hinzufugen..." : "Hinzufügen"}
+          </button>
         </div>
-      </Card>
+      </section>
     {/if}
   {/if}
 </div>

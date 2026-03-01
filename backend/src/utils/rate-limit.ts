@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 type RateLimitOptions = {
@@ -5,6 +6,7 @@ type RateLimitOptions = {
   max: number;
   windowMs: number;
   message: string;
+  keyGenerator?: (request: FastifyRequest) => string;
 };
 
 type Entry = {
@@ -14,10 +16,24 @@ type Entry = {
 
 const buckets = new Map<string, Entry>();
 
-export const createRateLimit = ({ bucket, max, windowMs, message }: RateLimitOptions) => {
+const getUserId = (request: FastifyRequest) => {
+  const user = (request as FastifyRequest & { user?: { id?: string; sub?: string } }).user;
+  return String(user?.id ?? user?.sub ?? "").trim();
+};
+
+export const rateLimitKeyByIp = (request: FastifyRequest) => `ip:${request.ip}`;
+
+export const rateLimitKeyByUserOrIp = (request: FastifyRequest) => {
+  const userId = getUserId(request);
+  if (userId) return `user:${userId}`;
+  return rateLimitKeyByIp(request);
+};
+
+export const createRateLimit = ({ bucket, max, windowMs, message, keyGenerator }: RateLimitOptions) => {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const now = Date.now();
-    const key = `${bucket}:${request.ip}`;
+    const keySuffix = keyGenerator ? keyGenerator(request) : rateLimitKeyByIp(request);
+    const key = `${bucket}:${keySuffix}`;
     const current = buckets.get(key);
 
     if (!current || current.resetAt <= now) {
@@ -28,7 +44,11 @@ export const createRateLimit = ({ bucket, max, windowMs, message }: RateLimitOpt
     if (current.count >= max) {
       const retryAfter = Math.max(1, Math.ceil((current.resetAt - now) / 1000));
       reply.header("Retry-After", String(retryAfter));
-      return reply.code(429).send({ error: message });
+      return reply.code(429).send({
+        success: false,
+        message,
+        retry_after_seconds: retryAfter
+      });
     }
 
     current.count += 1;

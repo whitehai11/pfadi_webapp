@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyInstance } from "fastify";
 import { db } from "../db/database.js";
 import { requireAuth } from "../utils/guards.js";

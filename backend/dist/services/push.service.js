@@ -1,10 +1,12 @@
+// engineered by Maro Elias Goth
 import webpush from "web-push";
 import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 import { settings } from "../config/settings.js";
+import { logger } from "../utils/logger.js";
 const ensureVapid = () => {
     if (!settings.vapidPublicKey || !settings.vapidPrivateKey) {
-        console.warn("VAPID keys missing; skipping push send.");
+        logger.warn("VAPID keys missing; skipping push send");
         return false;
     }
     webpush.setVapidDetails(settings.vapidSubject, settings.vapidPublicKey, settings.vapidPrivateKey);
@@ -47,7 +49,10 @@ export const sendToUser = async (userId, payload) => {
             }, JSON.stringify(payload));
         }
         catch (err) {
-            console.error("Push send failed", err);
+            logger.error("Push send failed", {
+                error: err instanceof Error ? err.message : String(err),
+                endpoint: sub.endpoint
+            });
         }
     }
 };
@@ -68,7 +73,10 @@ export const sendToAll = async (payload) => {
             }, JSON.stringify(payload));
         }
         catch (err) {
-            console.error("Push send failed", err);
+            logger.error("Push send failed", {
+                error: err instanceof Error ? err.message : String(err),
+                endpoint: sub.endpoint
+            });
         }
     }
 };

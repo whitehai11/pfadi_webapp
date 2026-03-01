@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import { randomUUID } from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 const mapRow = (row) => row;

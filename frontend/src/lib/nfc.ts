@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 export const isNfcSupported = () => "NDEFReader" in window;
 
 export const readNfcTag = async (): Promise<string> => {

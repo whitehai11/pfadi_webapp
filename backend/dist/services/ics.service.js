@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import fs from "node:fs";
 import path from "node:path";
 import ical, { ICalCalendarMethod } from "ical-generator";

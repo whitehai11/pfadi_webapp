@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyReply } from "fastify";
 import { z } from "zod";
 
@@ -18,7 +19,7 @@ export const parseOrReply = <T>(
 ) => {
   const parsed = schema.safeParse(value);
   if (!parsed.success) {
-    reply.code(400).send({ error: message });
+    reply.code(400).send({ success: false, message });
     return null;
   }
   return parsed.data;

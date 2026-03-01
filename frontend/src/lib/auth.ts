@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import { writable } from "svelte/store";
 
 export type UserSession = {
@@ -5,6 +6,7 @@ export type UserSession = {
   username: string;
   role: "admin" | "user" | "materialwart";
   status?: "approved";
+  avatarUrl?: string | null;
 };
 
 const tokenKey = "pfadi_token";
@@ -19,7 +21,15 @@ export const getToken = (): string | null => {
 export const setToken = (token: string) => {
   if (typeof localStorage === "undefined") return;
   localStorage.setItem(tokenKey, token);
-  session.set(parseToken(token));
+  const parsed = parseToken(token);
+  if (!parsed) {
+    session.set(null);
+    return;
+  }
+  session.update((current) => ({
+    ...parsed,
+    avatarUrl: current?.avatarUrl ?? null
+  }));
 };
 
 export const clearToken = () => {
@@ -31,7 +41,15 @@ export const clearToken = () => {
 export const restoreSession = () => {
   const token = getToken();
   if (token) {
-    session.set(parseToken(token));
+    const parsed = parseToken(token);
+    if (!parsed) {
+      clearToken();
+      return;
+    }
+    session.update((current) => ({
+      ...parsed,
+      avatarUrl: current?.avatarUrl ?? null
+    }));
   }
 };
 
@@ -48,6 +66,18 @@ const parseToken = (token: string): UserSession | null => {
 export const authHeader = (): Record<string, string> => {
   const token = getToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+export const setSessionProfile = (profile: { username?: string; role?: UserSession["role"]; avatarUrl?: string | null }) => {
+  session.update((current) => {
+    if (!current) return current;
+    return {
+      ...current,
+      username: profile.username ?? current.username,
+      role: profile.role ?? current.role,
+      avatarUrl: profile.avatarUrl ?? null
+    };
+  });
 };
 
 export const roleLabel = (role: UserSession["role"]) => {

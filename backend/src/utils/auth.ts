@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import crypto from "node:crypto";
 
 const scryptAsync = (password: string, salt: string, keylen: number): Promise<Buffer> => {

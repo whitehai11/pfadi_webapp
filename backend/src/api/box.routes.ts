@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { requireAuth, requireMaterialOrAdmin } from "../utils/guards.js";

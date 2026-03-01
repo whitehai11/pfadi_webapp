@@ -5,45 +5,52 @@ export const getApprovedUserFromRequest = (request) => {
     if (!tokenUser?.id)
         return null;
     const user = db
-        .prepare("SELECT id, email, role, status FROM users WHERE id = ?")
+        .prepare("SELECT id, email, role, status, force_logout_after FROM users WHERE id = ?")
         .get(tokenUser.id);
     if (!user || user.status !== "approved")
         return null;
+    if (user.force_logout_after) {
+        const tokenIssuedAtMs = typeof tokenUser.iat === "number" ? tokenUser.iat * 1000 : 0;
+        const forcedAfterMs = Date.parse(user.force_logout_after);
+        if (!Number.isFinite(forcedAfterMs))
+            return null;
+        if (!tokenIssuedAtMs || tokenIssuedAtMs < forcedAfterMs)
+            return null;
+    }
     return user;
 };
 export const requireAuth = async (request, reply) => {
+    await verifyApprovedUser(request, reply);
+};
+const verifyApprovedUser = async (request, reply) => {
     try {
         await request.jwtVerify();
-        if (!getApprovedUserFromRequest(request)) {
-            return reply.code(403).send({ error: "Forbidden" });
-        }
     }
     catch {
-        return reply.code(401).send({ error: "Unauthorized" });
+        reply.code(401).send({ success: false, message: "Unauthorized" });
+        return null;
     }
+    const user = getApprovedUserFromRequest(request);
+    if (!user) {
+        reply.code(403).send({ success: false, message: "Forbidden" });
+        return null;
+    }
+    return user;
 };
 export const requireAdmin = async (request, reply) => {
-    try {
-        await request.jwtVerify();
-        const user = getApprovedUserFromRequest(request);
-        if (user?.role !== "admin") {
-            return reply.code(403).send({ error: "Forbidden" });
-        }
-    }
-    catch {
-        return reply.code(401).send({ error: "Unauthorized" });
+    const user = await verifyApprovedUser(request, reply);
+    if (!user || reply.sent)
+        return;
+    if (user.role !== "admin") {
+        return reply.code(403).send({ success: false, message: "Forbidden" });
     }
 };
 export const requireMaterialOrAdmin = async (request, reply) => {
-    try {
-        await request.jwtVerify();
-        const user = getApprovedUserFromRequest(request);
-        if (user?.role !== "admin" && user?.role !== "materialwart") {
-            return reply.code(403).send({ error: "Forbidden" });
-        }
-    }
-    catch {
-        return reply.code(401).send({ error: "Unauthorized" });
+    const user = await verifyApprovedUser(request, reply);
+    if (!user || reply.sent)
+        return;
+    if (user.role !== "admin" && user.role !== "materialwart") {
+        return reply.code(403).send({ success: false, message: "Forbidden" });
     }
 };
 export const requireChatFeature = async (request, reply) => {
@@ -51,6 +58,6 @@ export const requireChatFeature = async (request, reply) => {
     if (reply.sent)
         return;
     if (!getBooleanSetting("chat_enabled", false)) {
-        return reply.code(403).send({ error: "Chat ist derzeit deaktiviert." });
+        return reply.code(403).send({ success: false, message: "Chat ist derzeit deaktiviert." });
     }
 };

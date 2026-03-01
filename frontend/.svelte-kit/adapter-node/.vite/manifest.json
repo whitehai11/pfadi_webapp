@@ -9,12 +9,24 @@
       "_environment.js"
     ]
   },
+  "_Avatar.js": {
+    "file": "chunks/Avatar.js",
+    "name": "Avatar",
+    "imports": [
+      "_index2.js",
+      "_utils2.js",
+      "_escaping.js"
+    ],
+    "css": [
+      "_app/immutable/assets/Avatar.C_62l-8X.css"
+    ]
+  },
   "_Card.js": {
     "file": "chunks/Card.js",
     "name": "Card",
     "imports": [
       "_index2.js",
-      "_context.js",
+      "_utils2.js",
       "_escaping.js"
     ]
   },
@@ -23,7 +35,7 @@
     "name": "Logo",
     "imports": [
       "_index2.js",
-      "_context.js"
+      "_utils2.js"
     ]
   },
   "_SegmentedControl.js": {
@@ -31,7 +43,7 @@
     "name": "SegmentedControl",
     "imports": [
       "_index2.js",
-      "_context.js",
+      "_utils2.js",
       "_escaping.js"
     ]
   },
@@ -39,14 +51,17 @@
     "file": "chunks/api.js",
     "name": "api",
     "imports": [
-      "_auth.js"
+      "_auth.js",
+      "_toast.js"
     ]
   },
   "_app-settings.js": {
     "file": "chunks/app-settings.js",
     "name": "app-settings",
     "imports": [
-      "_index.js"
+      "_context.js",
+      "_index.js",
+      "_toast.js"
     ]
   },
   "_auth.js": {
@@ -58,10 +73,7 @@
   },
   "_context.js": {
     "file": "chunks/context.js",
-    "name": "context",
-    "imports": [
-      "_false.js"
-    ]
+    "name": "context"
   },
   "_environment.js": {
     "file": "chunks/environment.js",
@@ -83,24 +95,33 @@
     "file": "chunks/index.js",
     "name": "index",
     "imports": [
-      "_context.js"
+      "_utils2.js"
     ]
   },
   "_index2.js": {
     "file": "chunks/index2.js",
     "name": "index",
     "imports": [
-      "_context.js",
-      "_escaping.js"
+      "_utils2.js",
+      "_escaping.js",
+      "_context.js"
     ]
   },
   "_internal.js": {
     "file": "chunks/internal.js",
     "name": "internal",
     "imports": [
-      "_context.js",
+      "_utils2.js",
       "_index2.js",
+      "_context.js",
       "_environment.js"
+    ]
+  },
+  "_overlay.js": {
+    "file": "chunks/overlay.js",
+    "name": "overlay",
+    "imports": [
+      "_index.js"
     ]
   },
   "_shared.js": {
@@ -114,7 +135,7 @@
     "file": "chunks/state.svelte.js",
     "name": "state.svelte",
     "imports": [
-      "_context.js"
+      "_utils2.js"
     ]
   },
   "_stores.js": {
@@ -127,9 +148,30 @@
       "_state.svelte.js"
     ]
   },
+  "_theme.js": {
+    "file": "chunks/theme.js",
+    "name": "theme",
+    "imports": [
+      "_index.js"
+    ]
+  },
+  "_toast.js": {
+    "file": "chunks/toast.js",
+    "name": "toast",
+    "imports": [
+      "_index.js"
+    ]
+  },
   "_utils.js": {
     "file": "chunks/utils.js",
     "name": "utils"
+  },
+  "_utils2.js": {
+    "file": "chunks/utils2.js",
+    "name": "utils",
+    "imports": [
+      "_false.js"
+    ]
   },
   "node_modules/@sveltejs/kit/src/runtime/app/server/remote/index.js": {
     "file": "remote-entry.js",
@@ -179,16 +221,23 @@
     "imports": [
       "_index2.js",
       "_stores.js",
-      "_context.js",
+      "_utils2.js",
       "_Logo.js",
+      "_toast.js",
+      "_overlay.js",
       "_escaping.js",
-      "_api.js",
+      "_Avatar.js",
       "_app-settings.js",
+      "_exports.js",
+      "_utils.js",
+      "_state.svelte.js",
+      "_index.js",
+      "_api.js",
       "_auth.js",
-      "_index.js"
+      "_theme.js"
     ],
     "css": [
-      "_app/immutable/assets/_layout.DaFp-fb5.css"
+      "_app/immutable/assets/_layout.DtBNDIxd.css"
     ]
   },
   "src/routes/+page.svelte": {
@@ -202,6 +251,7 @@
       "_Logo.js",
       "_api.js",
       "_auth.js",
+      "_toast.js",
       "_escaping.js"
     ]
   },
@@ -212,15 +262,18 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_Card.js",
+      "_index.js",
+      "_Avatar.js",
       "_SegmentedControl.js",
-      "_context.js",
+      "_utils2.js",
       "_escaping.js",
       "_api.js",
-      "_auth.js"
+      "_auth.js",
+      "_overlay.js",
+      "_toast.js"
     ],
     "css": [
-      "_app/immutable/assets/_page.BsRHUfSR.css"
+      "_app/immutable/assets/_page.CTb5hpK7.css"
     ]
   },
   "src/routes/calendar/+page.svelte": {
@@ -231,6 +284,7 @@
     "imports": [
       "_index2.js",
       "_auth.js",
+      "_toast.js",
       "_Card.js",
       "_SegmentedControl.js",
       "_escaping.js"
@@ -243,9 +297,11 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_Card.js",
-      "_auth.js",
       "_app-settings.js",
+      "_Card.js",
+      "_Avatar.js",
+      "_auth.js",
+      "_toast.js",
       "_escaping.js"
     ]
   },
@@ -256,8 +312,8 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_Card.js",
       "_auth.js",
+      "_toast.js",
       "_escaping.js"
     ]
   },
@@ -267,7 +323,8 @@
     "src": "src/routes/nfc/+page.svelte",
     "isEntry": true,
     "imports": [
-      "_escaping.js"
+      "_escaping.js",
+      "_toast.js"
     ]
   },
   "src/routes/packlists/+page.svelte": {
@@ -276,7 +333,7 @@
     "src": "src/routes/packlists/+page.svelte",
     "isEntry": true,
     "imports": [
-      "_Card.js"
+      "_toast.js"
     ]
   },
   "src/routes/packlists/[eventId]/+page.svelte": {
@@ -287,7 +344,8 @@
     "imports": [
       "_index2.js",
       "_stores.js",
-      "_Card.js"
+      "_Card.js",
+      "_toast.js"
     ]
   },
   "src/routes/settings/+page.svelte": {
@@ -297,9 +355,15 @@
     "isEntry": true,
     "imports": [
       "_index2.js",
-      "_Card.js",
+      "_SegmentedControl.js",
+      "_Avatar.js",
       "_auth.js",
+      "_toast.js",
+      "_theme.js",
       "_escaping.js"
+    ],
+    "css": [
+      "_app/immutable/assets/_page.BVogSF1m.css"
     ]
   }
 }

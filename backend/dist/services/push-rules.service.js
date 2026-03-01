@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 import crypto from "node:crypto";
 import { db, nowIso } from "../db/database.js";
 import { sendToUser } from "./push.service.js";
@@ -217,9 +218,29 @@ export const sendRuleToUsers = async (rule, users, payload) => {
 };
 export const sendCustomPushRule = async (rule, options) => {
     const users = listTargetUsers(rule);
+    if (users.length === 0) {
+        return { delivered: 0, skipped: 0, lastSentAt: rule.last_sent_at ?? null };
+    }
     const title = (rule.title ?? "").trim() || "Hinweis";
     const body = (rule.message ?? "").trim();
+    const now = new Date();
+    const intervalWindowMs = rule.notification_type === "recurring" &&
+        rule.is_recurring &&
+        rule.interval_value &&
+        rule.interval_unit
+        ? intervalToMilliseconds(rule.interval_value, rule.interval_unit)
+        : 60 * 1000;
+    const sinceIso = new Date(now.getTime() - intervalWindowMs).toISOString();
+    let delivered = 0;
+    let skipped = 0;
     for (const user of users) {
+        const duplicate = db
+            .prepare("SELECT id FROM push_delivery_log WHERE rule_id = ? AND user_id = ? AND COALESCE(event_id, '') = '' AND sent_at >= ? LIMIT 1")
+            .get(rule.id, user.id, sinceIso);
+        if (duplicate) {
+            skipped += 1;
+            continue;
+        }
         await sendToUser(user.id, {
             title,
             body,
@@ -227,10 +248,14 @@ export const sendCustomPushRule = async (rule, options) => {
             ruleId: rule.id
         });
         logSent(rule.id, null, user.id);
+        delivered += 1;
     }
+    let lastSentAt = rule.last_sent_at ?? null;
     if (options?.updateLastSent !== false) {
-        updateCustomPushRuleLastSent(rule.id);
+        lastSentAt = nowIso();
+        db.prepare("UPDATE push_rules SET last_sent_at = ?, updated_at = ? WHERE id = ?").run(lastSentAt, nowIso(), rule.id);
     }
+    return { delivered, skipped, lastSentAt };
 };
 export const sendRulesForEvent = async (ruleType, event) => {
     const rules = getRules(ruleType);

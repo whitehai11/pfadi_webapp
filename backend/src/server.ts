@@ -1,3 +1,13 @@
+/*
+ ███╗   ███╗ █████╗ ██████╗  ██████╗
+ ████╗ ████║██╔══██╗██╔══██╗██╔═══██╗
+ ██╔████╔██║███████║██████╔╝██║   ██║
+ ██║╚██╔╝██║██╔══██║██╔══██╗██║   ██║
+ ██║ ╚═╝ ██║██║  ██║██║  ██║╚██████╔╝
+ ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝
+
+ engineered by Maro Elias Goth
+*/
 import fs from "node:fs";
 import crypto from "node:crypto";
 import Fastify from "fastify";
@@ -5,6 +15,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
 import multipart from "@fastify/multipart";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import { settings } from "./config/settings.js";
 import { applyMigrations } from "./db/migrate-runner.js";
 import { db } from "./db/database.js";
@@ -24,8 +35,130 @@ import { scheduleReminders } from "./cron/reminders.cron.js";
 import { schedulePacklistChecks } from "./cron/packlist-check.cron.js";
 import { scheduleCustomPushRules } from "./cron/push-rules.cron.js";
 import { ensureDefaultChatRoom } from "./services/chat.service.js";
+import { createRateLimit } from "./utils/rate-limit.js";
+import { logger } from "./utils/logger.js";
 
-const app = Fastify({ logger: true });
+const appVersion = String(process.env.APP_VERSION ?? process.env.npm_package_version ?? "dev");
+const appCommit = String(process.env.GIT_COMMIT ?? process.env.VITE_GIT_COMMIT ?? "dev");
+const appEnvironment = String(settings.nodeEnv);
+
+const app = Fastify({
+  logger: {
+    level: settings.logLevel,
+    redact: {
+      paths: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        "req.body.password",
+        "req.body.currentPassword",
+        "req.body.newPassword",
+        "res.headers['set-cookie']"
+      ],
+      remove: true
+    }
+  }
+});
+
+const parseOrigin = (value: string) => {
+  try {
+    return new URL(value).origin.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+
+const allowedOrigins = new Set<string>();
+for (const origin of settings.allowedOrigins) {
+  const parsed = parseOrigin(origin);
+  if (parsed) {
+    allowedOrigins.add(parsed);
+  }
+}
+const hasConfiguredOrigins = allowedOrigins.size > 0;
+const allowAnyOriginForDev = settings.nodeEnv !== "production" && !hasConfiguredOrigins;
+
+const isApiRequest = (request: FastifyRequest) => request.url.startsWith("/api");
+const isMutatingMethod = (request: FastifyRequest) =>
+  request.method !== "GET" && request.method !== "HEAD" && request.method !== "OPTIONS";
+
+const validateCsrf = (request: FastifyRequest) => {
+  if (!isApiRequest(request) || !isMutatingMethod(request)) return true;
+
+  const originalAuthHeader = request.headers.authorization;
+  const cookieToken = parseTokenFromCookie(request.headers.cookie);
+  if (!cookieToken || originalAuthHeader) {
+    return true;
+  }
+
+  const secFetchSite = request.headers["sec-fetch-site"];
+  if (secFetchSite === "cross-site") {
+    return false;
+  }
+
+  const origin = typeof request.headers.origin === "string" ? parseOrigin(request.headers.origin) : null;
+  const referer = typeof request.headers.referer === "string" ? parseOrigin(request.headers.referer) : null;
+  const candidate = origin ?? referer;
+  if (!candidate) return false;
+  if (allowAnyOriginForDev) return true;
+  return allowedOrigins.has(candidate);
+};
+
+const parseTokenFromCookie = (cookieHeader: string | undefined) => {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(";").map((item) => item.trim());
+  for (const part of parts) {
+    if (!part.startsWith("pfadi_token=")) continue;
+    const value = part.slice("pfadi_token=".length).trim();
+    if (!value) return null;
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return null;
+};
+
+const normalizeApiResponse = (request: FastifyRequest, reply: FastifyReply, payload: unknown) => {
+  if (!request.url.startsWith("/api")) return payload;
+  if (payload === null || payload === undefined) {
+    return {
+      success: reply.statusCode < 400,
+      message: reply.statusCode < 400 ? "OK" : "Request failed"
+    };
+  }
+  if (typeof payload !== "object") return payload;
+  if (Buffer.isBuffer(payload)) return payload;
+
+  const body = payload as Record<string, unknown>;
+  if (typeof body.success === "boolean" && typeof body.message === "string") {
+    return payload;
+  }
+
+  if (reply.statusCode >= 400) {
+    const message =
+      (typeof body.message === "string" && body.message) ||
+      (typeof body.error === "string" && body.error) ||
+      "Request failed";
+    return { success: false, message };
+  }
+
+  return {
+    success: true,
+    message: "OK",
+    data: payload
+  };
+};
+
+const resolveStatusCode = (error: unknown): number => {
+  const candidate =
+    typeof (error as { statusCode?: unknown }).statusCode === "number"
+      ? Number((error as { statusCode?: unknown }).statusCode)
+      : 500;
+
+  if (candidate >= 400 && candidate < 600) return candidate;
+  return 500;
+};
 
 app.register(helmet, {
   global: true,
@@ -36,12 +169,15 @@ app.register(helmet, {
       imgSrc: ["'self'", "data:", "blob:"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
       workerSrc: ["'self'", "blob:"],
       fontSrc: ["'self'", "data:"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"]
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+      blockAllMixedContent: []
     }
   },
   referrerPolicy: { policy: "no-referrer" },
@@ -52,10 +188,14 @@ app.register(helmet, {
   crossOriginResourcePolicy: { policy: "same-origin" }
 });
 app.register(cors, {
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Authorization", "Content-Type", "X-Requested-With"],
   origin: (origin, cb) => {
     if (!origin) return cb(null, true);
-    if (settings.allowedOrigins.length === 0) return cb(null, true);
-    cb(null, settings.allowedOrigins.includes(origin));
+    if (allowAnyOriginForDev) return cb(null, true);
+    const normalized = parseOrigin(origin);
+    cb(null, Boolean(normalized && allowedOrigins.has(normalized)));
   }
 });
 
@@ -67,8 +207,98 @@ app.register(multipart, {
   }
 });
 
-app.addHook("onRequest", async (_request, reply) => {
+const globalApiRateLimit = createRateLimit({
+  bucket: "api-global",
+  max: 600,
+  windowMs: 5 * 60 * 1000,
+  message: "Zu viele Anfragen. Bitte kurz warten."
+});
+
+app.addHook("onRequest", async (request, reply) => {
   reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  const tokenFromCookie = parseTokenFromCookie(request.headers.cookie);
+
+  if (!validateCsrf(request)) {
+    return reply.code(403).send({ success: false, message: "CSRF-Validierung fehlgeschlagen." });
+  }
+
+  if (!request.headers.authorization && tokenFromCookie) {
+    if (isApiRequest(request)) {
+      const secFetchSite = request.headers["sec-fetch-site"];
+      if (secFetchSite === "cross-site") {
+        return reply.code(403).send({ success: false, message: "Forbidden" });
+      }
+    }
+    request.headers.authorization = `Bearer ${tokenFromCookie}`;
+  }
+});
+
+app.addHook("preHandler", async (request, reply) => {
+  if (!isApiRequest(request)) return;
+  if (request.method === "OPTIONS") return;
+  await globalApiRateLimit(request, reply);
+});
+
+app.addHook("preSerialization", async (request, reply, payload) => normalizeApiResponse(request, reply, payload));
+
+app.setErrorHandler((error, request, reply) => {
+  request.log.error({ err: error }, "Unhandled request error");
+  if (reply.sent) return;
+
+  const statusCode = resolveStatusCode(error);
+  const hasValidationIssue = Array.isArray((error as { validation?: unknown[] }).validation);
+  const jwtError = typeof (error as { code?: unknown }).code === "string" && String((error as { code?: unknown }).code).startsWith("FST_JWT_");
+
+  const message = hasValidationIssue
+    ? "Ungueltige Anfrage."
+    : jwtError
+      ? "Nicht autorisiert."
+      : statusCode >= 500
+        ? "Interner Serverfehler."
+        : error.message || "Request failed";
+
+  reply.code(statusCode).send({ success: false, message });
+});
+
+app.setNotFoundHandler((request, reply) => {
+  if (request.url.startsWith("/api")) {
+    return reply.code(404).send({ success: false, message: "Route nicht gefunden." });
+  }
+  return reply.code(404).type("text/plain; charset=utf-8").send("Not Found");
+});
+
+app.get("/healthz", async (_request, reply) => {
+  try {
+    db.prepare("SELECT 1 as ok").get();
+    reply.code(shuttingDown ? 503 : 200);
+    return {
+      status: shuttingDown ? "shutting_down" : "ok",
+      uptimeSeconds: Math.floor(process.uptime())
+    };
+  } catch {
+    reply.code(503);
+    return {
+      status: "degraded",
+      uptimeSeconds: Math.floor(process.uptime())
+    };
+  }
+});
+
+app.get("/api/health", async (_request, reply) => {
+  try {
+    db.prepare("SELECT 1 as ok").get();
+    reply.code(shuttingDown ? 503 : 200);
+    return {
+      status: shuttingDown ? "shutting_down" : "ok",
+      uptimeSeconds: Math.floor(process.uptime())
+    };
+  } catch {
+    reply.code(503);
+    return {
+      status: "degraded",
+      uptimeSeconds: Math.floor(process.uptime())
+    };
+  }
 });
 
 const ensureDefaults = () => {
@@ -188,14 +418,6 @@ const ensureDefaults = () => {
   insertSetting.run("quiet_hours_start", "21:00", now);
   insertSetting.run("quiet_hours_end", "06:00", now);
 
-  if (settings.adminEmails.length > 0) {
-    const update = db.prepare("UPDATE users SET role = 'admin', status = 'approved', updated_at = ? WHERE email = ?");
-    for (const email of settings.adminEmails) {
-      update.run(now, email.trim().toLowerCase());
-    }
-  }
-
-  db.prepare("UPDATE users SET role = 'admin', status = 'approved', updated_at = ? WHERE lower(email) = 'maro'").run(now);
   ensureDefaultChatRoom();
 };
 
@@ -219,18 +441,88 @@ app.get("/calendar.ics", async (request, reply) => {
   return reply.send(fs.readFileSync(icsPath));
 });
 
+const scheduledTasks: Array<{ stop: () => void }> = [];
+let shuttingDown = false;
+let shutdownInProgress = false;
+
+const gracefulShutdown = async (signal: string, exitCode = 0) => {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
+  shuttingDown = true;
+
+  const forceExitTimeout = setTimeout(() => {
+    logger.fatal("Forced process exit due to shutdown timeout", { signal, timeoutMs: settings.shutdownTimeoutMs });
+    process.exit(1);
+  }, settings.shutdownTimeoutMs);
+  forceExitTimeout.unref();
+
+  try {
+    logger.info("Graceful shutdown started", { signal });
+    for (const task of scheduledTasks) {
+      try {
+        task.stop();
+      } catch (error) {
+        logger.warn("Failed to stop scheduled task", {
+          signal,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+    }
+
+    await app.close();
+    db.close();
+    logger.info("Graceful shutdown complete", { signal });
+    process.exit(exitCode);
+  } catch (error) {
+    logger.fatal("Graceful shutdown failed", {
+      signal,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    process.exit(1);
+  }
+};
+
 const start = async () => {
-  applyMigrations();
-  ensureDefaults();
-  generateIcs();
-  scheduleCalendarRefresh();
-  scheduleReminders();
-  schedulePacklistChecks();
-  scheduleCustomPushRules();
+  try {
+    applyMigrations();
+    ensureDefaults();
+    generateIcs();
+    scheduledTasks.push(scheduleCalendarRefresh());
+    scheduledTasks.push(scheduleReminders());
+    scheduledTasks.push(schedulePacklistChecks());
+    scheduledTasks.push(scheduleCustomPushRules());
+  } catch (error) {
+    logger.fatal("Startup initialization failed", {
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
 
   await app.listen({ port: settings.port, host: settings.host });
-  console.log(`API listening on ${settings.host}:${settings.port}`);
+  console.log(`Pfadi Orga API v${appVersion} (commit ${appCommit}) — ${appEnvironment}`);
+  console.log("engineered by Maro Elias Goth");
+  app.log.info({ host: settings.host, port: settings.port }, "API listening");
 };
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
+
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled promise rejection", {
+    reason: reason instanceof Error ? reason.message : String(reason)
+  });
+  void gracefulShutdown("unhandledRejection", 1);
+});
+
+process.on("uncaughtException", (error) => {
+  logger.fatal("Uncaught exception", { error: error.message });
+  void gracefulShutdown("uncaughtException", 1);
+});
 
 start().catch((err) => {
   app.log.error(err);

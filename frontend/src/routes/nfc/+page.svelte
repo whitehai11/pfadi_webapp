@@ -2,6 +2,7 @@
   import Card from "$lib/components/Card.svelte";
   import { apiFetch } from "$lib/api";
   import { isNfcSupported, readNfcTag } from "$lib/nfc";
+  import { pushToast } from "$lib/toast";
 
   let status = "NFC-Kennung lesen.";
   let box: any = null;
@@ -19,8 +20,11 @@
       const tagId = await readNfcTag();
       status = `Kennung erkannt: ${tagId}`;
       box = await apiFetch(`/api/boxes/tag/${encodeURIComponent(tagId)}`);
+      pushToast("Kennung gelesen.", "success", 1200);
     } catch {
       status = "Kennung konnte nicht gelesen oder nicht gefunden werden.";
+      pushToast(status, "error");
+      console.error("[nfc] startScan failed");
     } finally {
       scanning = false;
     }
@@ -29,17 +33,14 @@
 
 <div class="page-stack">
   <section class="page-intro">
-    <p class="page-kicker">NFC</p>
-    <h1 class="page-title">Kennungen leise und direkt auslesen.</h1>
-    <p class="page-description">Halte das Gerät an eine Box und öffne Materialdaten ohne zusätzlichen Kontextwechsel.</p>
+    <h1 class="page-title">NFC</h1>
   </section>
 
   <section class="surface-card nfc-hero">
     <div class="nfc-glow"></div>
-    <div class="split-grid" style="align-items: center;">
+    <div class="split-grid align-center">
       <div class="page-stack">
         <h2 class="section-title">Scan starten</h2>
-        <p class="text-muted">Die App liest die Kennung aus und öffnet sofort die passende Box.</p>
         <div class="actions">
           <button class="btn btn-primary" type="button" on:click={startScan}>
             {scanning ? "Läuft..." : "Kennung lesen"}
@@ -47,14 +48,14 @@
           <span class="text-muted">{status}</span>
         </div>
       </div>
-      <div class="actions" style="justify-content: center;">
+      <div class="actions justify-center">
         <div class="nfc-orb" aria-hidden="true"></div>
       </div>
     </div>
   </section>
 
   {#if box}
-    <Card title="Gefundene Box" description="Die zugehörige Box inklusive zugewiesener Materialien.">
+    <Card title="Gefundene Box">
       <div class="split-grid">
         <div class="mini-card">
           <div class="list-meta">
@@ -84,7 +85,7 @@
             {/each}
           </div>
         {:else}
-          <p class="text-muted">Keine Daten vorhanden.</p>
+          <p class="text-muted">Keine Daten.</p>
         {/if}
       </div>
     </Card>

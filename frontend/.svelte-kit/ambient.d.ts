@@ -28,25 +28,18 @@
 declare module '$env/static/private' {
 	export const ALLUSERSPROFILE: string;
 	export const APPDATA: string;
-	export const APPLICATION_INSIGHTS_NO_STATSBEAT: string;
 	export const CHROME_CRASHPAD_PIPE_NAME: string;
 	export const CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
+	export const CODEX_SHELL: string;
 	export const CODEX_THREAD_ID: string;
 	export const COLOR: string;
 	export const CommonProgramFiles: string;
 	export const CommonProgramW6432: string;
 	export const COMPUTERNAME: string;
 	export const ComSpec: string;
+	export const DISABLE_AUTO_UPDATE: string;
 	export const DriverData: string;
 	export const EDITOR: string;
-	export const EFC_8080_1262719628: string;
-	export const EFC_8080_1592913036: string;
-	export const EFC_8080_2283032206: string;
-	export const EFC_8080_2775293581: string;
-	export const EFC_8080_3789132940: string;
-	export const ELECTRON_RUN_AS_NODE: string;
-	export const FPS_BROWSER_APP_PROFILE_STRING: string;
-	export const FPS_BROWSER_USER_PROFILE_STRING: string;
 	export const HOME: string;
 	export const HOMEDRIVE: string;
 	export const HOMEPATH: string;
@@ -77,7 +70,7 @@ declare module '$env/static/private' {
 	export const NUMBER_OF_PROCESSORS: string;
 	export const OneDrive: string;
 	export const OS: string;
-	export const PATH: string;
+	export const Path: string;
 	export const PATHEXT: string;
 	export const POWERSHELL_TELEMETRY_OPTOUT: string;
 	export const PROCESSOR_ARCHITECTURE: string;
@@ -91,7 +84,7 @@ declare module '$env/static/private' {
 	export const PSModulePath: string;
 	export const PUBLIC: string;
 	export const RUST_LOG: string;
-	export const SESSIONNAME: string;
+	export const SHELL: string;
 	export const SystemDrive: string;
 	export const SystemRoot: string;
 	export const TEMP: string;
@@ -100,15 +93,9 @@ declare module '$env/static/private' {
 	export const USERDOMAIN_ROAMINGPROFILE: string;
 	export const USERNAME: string;
 	export const USERPROFILE: string;
-	export const VSCODE_CODE_CACHE_PATH: string;
-	export const VSCODE_CRASH_REPORTER_PROCESS_TYPE: string;
-	export const VSCODE_CWD: string;
-	export const VSCODE_ESM_ENTRYPOINT: string;
-	export const VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
-	export const VSCODE_IPC_HOOK: string;
-	export const VSCODE_NLS_CONFIG: string;
-	export const VSCODE_PID: string;
 	export const windir: string;
+	export const ZSH_TMUX_AUTOSTART: string;
+	export const ZSH_TMUX_AUTOSTARTED: string;
 }
 
 /**
@@ -140,25 +127,18 @@ declare module '$env/dynamic/private' {
 	export const env: {
 		ALLUSERSPROFILE: string;
 		APPDATA: string;
-		APPLICATION_INSIGHTS_NO_STATSBEAT: string;
 		CHROME_CRASHPAD_PIPE_NAME: string;
 		CODEX_INTERNAL_ORIGINATOR_OVERRIDE: string;
+		CODEX_SHELL: string;
 		CODEX_THREAD_ID: string;
 		COLOR: string;
 		CommonProgramFiles: string;
 		CommonProgramW6432: string;
 		COMPUTERNAME: string;
 		ComSpec: string;
+		DISABLE_AUTO_UPDATE: string;
 		DriverData: string;
 		EDITOR: string;
-		EFC_8080_1262719628: string;
-		EFC_8080_1592913036: string;
-		EFC_8080_2283032206: string;
-		EFC_8080_2775293581: string;
-		EFC_8080_3789132940: string;
-		ELECTRON_RUN_AS_NODE: string;
-		FPS_BROWSER_APP_PROFILE_STRING: string;
-		FPS_BROWSER_USER_PROFILE_STRING: string;
 		HOME: string;
 		HOMEDRIVE: string;
 		HOMEPATH: string;
@@ -189,7 +169,7 @@ declare module '$env/dynamic/private' {
 		NUMBER_OF_PROCESSORS: string;
 		OneDrive: string;
 		OS: string;
-		PATH: string;
+		Path: string;
 		PATHEXT: string;
 		POWERSHELL_TELEMETRY_OPTOUT: string;
 		PROCESSOR_ARCHITECTURE: string;
@@ -203,7 +183,7 @@ declare module '$env/dynamic/private' {
 		PSModulePath: string;
 		PUBLIC: string;
 		RUST_LOG: string;
-		SESSIONNAME: string;
+		SHELL: string;
 		SystemDrive: string;
 		SystemRoot: string;
 		TEMP: string;
@@ -212,15 +192,9 @@ declare module '$env/dynamic/private' {
 		USERDOMAIN_ROAMINGPROFILE: string;
 		USERNAME: string;
 		USERPROFILE: string;
-		VSCODE_CODE_CACHE_PATH: string;
-		VSCODE_CRASH_REPORTER_PROCESS_TYPE: string;
-		VSCODE_CWD: string;
-		VSCODE_ESM_ENTRYPOINT: string;
-		VSCODE_HANDLES_UNCAUGHT_ERRORS: string;
-		VSCODE_IPC_HOOK: string;
-		VSCODE_NLS_CONFIG: string;
-		VSCODE_PID: string;
 		windir: string;
+		ZSH_TMUX_AUTOSTART: string;
+		ZSH_TMUX_AUTOSTARTED: string;
 		[key: `PUBLIC_${string}`]: undefined;
 		[key: `${string}`]: string | undefined;
 	}

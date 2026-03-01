@@ -1,51 +1,64 @@
+// engineered by Maro Elias Goth
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { db } from "../db/database.js";
 import { getBooleanSetting } from "../services/app-settings.service.js";
 
 export const getApprovedUserFromRequest = (request: FastifyRequest) => {
-  const tokenUser = request.user as { id?: string };
+  const tokenUser = request.user as { id?: string; iat?: number };
   if (!tokenUser?.id) return null;
 
   const user = db
-    .prepare("SELECT id, email, role, status FROM users WHERE id = ?")
-    .get(tokenUser.id) as { id: string; email: string; role: string; status: string } | undefined;
+    .prepare("SELECT id, email, role, status, force_logout_after FROM users WHERE id = ?")
+    .get(tokenUser.id) as
+    | { id: string; email: string; role: string; status: string; force_logout_after: string | null }
+    | undefined;
 
   if (!user || user.status !== "approved") return null;
+  if (user.force_logout_after) {
+    const tokenIssuedAtMs = typeof tokenUser.iat === "number" ? tokenUser.iat * 1000 : 0;
+    const forcedAfterMs = Date.parse(user.force_logout_after);
+    if (!Number.isFinite(forcedAfterMs)) return null;
+    if (!tokenIssuedAtMs || tokenIssuedAtMs < forcedAfterMs) return null;
+  }
   return user;
 };
 
 export const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+  await verifyApprovedUser(request, reply);
+};
+
+const verifyApprovedUser = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     await request.jwtVerify();
-    if (!getApprovedUserFromRequest(request)) {
-      return reply.code(403).send({ error: "Forbidden" });
-    }
   } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
+    reply.code(401).send({ success: false, message: "Unauthorized" });
+    return null;
   }
+
+  const user = getApprovedUserFromRequest(request);
+  if (!user) {
+    reply.code(403).send({ success: false, message: "Forbidden" });
+    return null;
+  }
+
+  return user;
 };
 
 export const requireAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    await request.jwtVerify();
-    const user = getApprovedUserFromRequest(request);
-    if (user?.role !== "admin") {
-      return reply.code(403).send({ error: "Forbidden" });
-    }
-  } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
+  const user = await verifyApprovedUser(request, reply);
+  if (!user || reply.sent) return;
+
+  if (user.role !== "admin") {
+    return reply.code(403).send({ success: false, message: "Forbidden" });
   }
 };
 
 export const requireMaterialOrAdmin = async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    await request.jwtVerify();
-    const user = getApprovedUserFromRequest(request);
-    if (user?.role !== "admin" && user?.role !== "materialwart") {
-      return reply.code(403).send({ error: "Forbidden" });
-    }
-  } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
+  const user = await verifyApprovedUser(request, reply);
+  if (!user || reply.sent) return;
+
+  if (user.role !== "admin" && user.role !== "materialwart") {
+    return reply.code(403).send({ success: false, message: "Forbidden" });
   }
 };
 
@@ -54,6 +67,6 @@ export const requireChatFeature = async (request: FastifyRequest, reply: Fastify
   if (reply.sent) return;
 
   if (!getBooleanSetting("chat_enabled", false)) {
-    return reply.code(403).send({ error: "Chat ist derzeit deaktiviert." });
+    return reply.code(403).send({ success: false, message: "Chat ist derzeit deaktiviert." });
   }
 };

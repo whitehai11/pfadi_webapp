@@ -1,3 +1,4 @@
+// engineered by Maro Elias Goth
 const PREFIX = "pfadi-inv:";
 export const normalizeInventoryTag = (raw) => {
     const trimmed = raw.trim();

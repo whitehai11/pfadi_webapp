@@ -1,25 +1,30 @@
-import { s as store_get, a as attr, u as unsubscribe_stores, e as ensure_array_like } from "../../chunks/index2.js";
+import { s as store_get, c as attr_class, a as attr, u as unsubscribe_stores, e as ensure_array_like } from "../../chunks/index2.js";
 import { C as Card } from "../../chunks/Card.js";
 import { L as Logo } from "../../chunks/Logo.js";
 import { a as apiFetch } from "../../chunks/api.js";
-import { s as session } from "../../chunks/auth.js";
+import { a as session } from "../../chunks/auth.js";
+import { p as pushToast } from "../../chunks/toast.js";
 import { e as escape_html } from "../../chunks/escaping.js";
 function _page($$renderer, $$props) {
   $$renderer.component(($$renderer2) => {
     var $$store_subs;
     let username = "";
     let password = "";
+    let fieldErrors = {};
+    let authLoading = false;
     let loadingDashboard = false;
+    let dashboardError = "";
     let upcomingEvents = [];
     let lowStockItems = [];
     let openResponses = [];
     const loadDashboard = async () => {
       if (!store_get($$store_subs ??= {}, "$session", session)) return;
       loadingDashboard = true;
+      dashboardError = "";
       try {
         const [events, inventory] = await Promise.all([
-          apiFetch("/api/calendar"),
-          apiFetch("/api/inventory").catch(() => [])
+          apiFetch("/api/calendar", { toastOnError: false }),
+          apiFetch("/api/inventory", { toastOnError: false }).catch(() => [])
         ]);
         const now = Date.now();
         const futureEvents = events.filter((event) => new Date(event.end_at).getTime() >= now).sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
@@ -27,7 +32,7 @@ function _page($$renderer, $$props) {
         lowStockItems = inventory.filter((item) => Number(item.quantity) <= Number(item.min_quantity)).slice(0, 3);
         const responseChecks = await Promise.all(futureEvents.slice(0, 8).map(async (event) => {
           try {
-            const availability = await apiFetch(`/api/calendar/${event.id}/availability`);
+            const availability = await apiFetch(`/api/calendar/${event.id}/availability`, { toastOnError: false });
             const responded = (availability.entries ?? []).some((entry) => entry.user_id === store_get($$store_subs ??= {}, "$session", session)?.id);
             return responded ? null : event;
           } catch {
@@ -36,6 +41,8 @@ function _page($$renderer, $$props) {
         }));
         openResponses = responseChecks.filter(Boolean);
       } catch {
+        dashboardError = "Die Ubersicht konnte nicht vollstandig geladen werden.";
+        pushToast(dashboardError, "error");
         upcomingEvents = [];
         lowStockItems = [];
         openResponses = [];
@@ -53,7 +60,25 @@ function _page($$renderer, $$props) {
       $$renderer2.push(`<!----></div> `);
       {
         $$renderer2.push("<!--[!-->");
-        $$renderer2.push(`<form class="auth-form"><div class="field"><label for="username">Benutzername</label> <input id="username" class="input" type="text"${attr("value", username)} autocomplete="username"/></div> <div class="field"><label for="password">Passwort</label> <input id="password" class="input" type="password"${attr("value", password)} autocomplete="current-password"/></div> <button class="btn btn-primary" type="submit">${escape_html("Einloggen")}</button> <button class="auth-link" type="button">${escape_html(
+        $$renderer2.push(`<form class="auth-form"><div class="field"><label for="username">Benutzername</label> <input id="username"${attr_class("input", void 0, { "input-invalid": Boolean(fieldErrors.username) })} type="text"${attr("value", username)} autocomplete="username" maxlength="120" required${attr("aria-invalid", fieldErrors.username ? "true" : "false")}/> `);
+        if (fieldErrors.username) {
+          $$renderer2.push("<!--[-->");
+          $$renderer2.push(`<p class="field-error">${escape_html(fieldErrors.username)}</p>`);
+        } else {
+          $$renderer2.push("<!--[!-->");
+        }
+        $$renderer2.push(`<!--]--></div> <div class="field"><label for="password">Passwort</label> <input id="password"${attr_class("input", void 0, { "input-invalid": Boolean(fieldErrors.password) })} type="password"${attr("value", password)} autocomplete="current-password" maxlength="200" minlength="8" required${attr("aria-invalid", fieldErrors.password ? "true" : "false")}/> `);
+        if (fieldErrors.password) {
+          $$renderer2.push("<!--[-->");
+          $$renderer2.push(`<p class="field-error">${escape_html(fieldErrors.password)}</p>`);
+        } else {
+          $$renderer2.push("<!--[!-->");
+        }
+        $$renderer2.push(`<!--]--></div> <button class="btn btn-primary" type="submit"${attr("disabled", authLoading, true)}>`);
+        {
+          $$renderer2.push("<!--[!-->");
+        }
+        $$renderer2.push(`<!--]--> ${escape_html("Einloggen")}</button> <button class="auth-link" type="button"${attr("disabled", authLoading, true)}>${escape_html(
           "Kein Zugang? Account beantragen"
         )}</button> `);
         {
@@ -64,26 +89,33 @@ function _page($$renderer, $$props) {
       $$renderer2.push(`<!--]--></div></section>`);
     } else {
       $$renderer2.push("<!--[!-->");
-      $$renderer2.push(`<div class="page-stack"><section class="page-intro"><p class="page-kicker">Übersicht</p> <h1 class="page-title">Alles Wichtige auf einen Blick.</h1> <p class="page-description">Der Startbereich bündelt die nächsten Termine, Materialthemen und offene Rückmeldungen.</p></section> <section class="dashboard-grid">`);
+      $$renderer2.push(`<div class="page-stack"><section class="page-intro"><h1 class="page-title">Ubersicht</h1></section> `);
+      if (dashboardError) {
+        $$renderer2.push("<!--[-->");
+        $$renderer2.push(`<p class="status-banner error">${escape_html(dashboardError)}</p>`);
+      } else {
+        $$renderer2.push("<!--[!-->");
+      }
+      $$renderer2.push(`<!--]--> <section class="dashboard-grid">`);
       Card($$renderer2, {
-        title: "Nächste Termine",
+        title: "Nachste Termine",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
             $$renderer3.push("<!--[-->");
-            $$renderer3.push(`<p class="text-muted">Lade Übersicht...</p>`);
+            $$renderer3.push(`<p class="text-muted">Laden...</p>`);
           } else {
             $$renderer3.push("<!--[!-->");
             if (upcomingEvents.length === 0) {
               $$renderer3.push("<!--[-->");
-              $$renderer3.push(`<p class="text-muted">Keine anstehenden Termine.</p>`);
+              $$renderer3.push(`<p class="text-muted">Keine Termine.</p>`);
             } else {
               $$renderer3.push("<!--[!-->");
               $$renderer3.push(`<div class="hairline-list"><!--[-->`);
               const each_array = ensure_array_like(upcomingEvents);
               for (let $$index = 0, $$length = each_array.length; $$index < $$length; $$index++) {
                 let event = each_array[$$index];
-                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(event.title)}</strong> <span class="text-muted">${escape_html(new Date(event.start_at).toLocaleString("de-DE"))}</span></div> <a class="subtle-button btn" href="/calendar">Öffnen</a></div>`);
+                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(event.title)}</strong> <span class="text-muted">${escape_html(new Date(event.start_at).toLocaleString("de-DE"))}</span></div> <a class="subtle-button btn" href="/calendar">Offnen</a></div>`);
               }
               $$renderer3.push(`<!--]--></div>`);
             }
@@ -105,19 +137,19 @@ function _page($$renderer, $$props) {
         children: ($$renderer3) => {
           if (loadingDashboard) {
             $$renderer3.push("<!--[-->");
-            $$renderer3.push(`<p class="text-muted">Material wird geladen...</p>`);
+            $$renderer3.push(`<p class="text-muted">Laden...</p>`);
           } else {
             $$renderer3.push("<!--[!-->");
             if (lowStockItems.length === 0) {
               $$renderer3.push("<!--[-->");
-              $$renderer3.push(`<p class="text-muted">Aktuell keine kritischen Bestände.</p>`);
+              $$renderer3.push(`<p class="text-muted">Keine Eintrage.</p>`);
             } else {
               $$renderer3.push("<!--[!-->");
               $$renderer3.push(`<div class="hairline-list"><!--[-->`);
               const each_array_1 = ensure_array_like(lowStockItems);
               for (let $$index_1 = 0, $$length = each_array_1.length; $$index_1 < $$length; $$index_1++) {
                 let item = each_array_1[$$index_1];
-                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(item.name)}</strong> <span class="text-muted">${escape_html(item.quantity)} von ${escape_html(item.min_quantity)} verfügbar</span></div> <span class="badge badge-warning">Beobachten</span></div>`);
+                $$renderer3.push(`<div class="list-row"><div class="list-meta"><strong>${escape_html(item.name)}</strong> <span class="text-muted">${escape_html(item.quantity)} von ${escape_html(item.min_quantity)} verfugbar</span></div> <span class="badge badge-warning">Beobachten</span></div>`);
               }
               $$renderer3.push(`<!--]--></div>`);
             }
@@ -134,17 +166,17 @@ function _page($$renderer, $$props) {
       });
       $$renderer2.push(`<!----> `);
       Card($$renderer2, {
-        title: "Offene Rückmeldungen",
+        title: "Offene Ruckmeldungen",
         interactive: true,
         children: ($$renderer3) => {
           if (loadingDashboard) {
             $$renderer3.push("<!--[-->");
-            $$renderer3.push(`<p class="text-muted">Rückmeldungen werden geladen...</p>`);
+            $$renderer3.push(`<p class="text-muted">Laden...</p>`);
           } else {
             $$renderer3.push("<!--[!-->");
             if (openResponses.length === 0) {
               $$renderer3.push("<!--[-->");
-              $$renderer3.push(`<p class="text-muted">Alles beantwortet.</p>`);
+              $$renderer3.push(`<p class="text-muted">Keine offenen Ruckmeldungen.</p>`);
             } else {
               $$renderer3.push("<!--[!-->");
               $$renderer3.push(`<div class="hairline-list"><!--[-->`);
