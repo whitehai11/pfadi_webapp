@@ -92,6 +92,27 @@ export const sendToUser = async (userId: string, payload: object) => {
   }
 };
 
+export const sendToAllExcept = async (excludeUserId: string, payload: object) => {
+  if (!ensureVapid()) return;
+  const subscriptions = db
+    .prepare("SELECT * FROM push_subscriptions WHERE user_id != ?")
+    .all(excludeUserId) as { endpoint: string; keys_p256dh: string; keys_auth: string; user_id: string }[];
+
+  for (const sub of subscriptions) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.keys_p256dh, auth: sub.keys_auth } },
+        JSON.stringify(payload)
+      );
+    } catch (err) {
+      logger.error("Push send failed", {
+        error: err instanceof Error ? err.message : String(err),
+        endpoint: sub.endpoint
+      });
+    }
+  }
+};
+
 export const sendToAll = async (payload: object) => {
   if (!ensureVapid()) return;
   const subscriptions = db

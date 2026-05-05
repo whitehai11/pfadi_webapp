@@ -14,6 +14,12 @@ const gitCommit = (() => {
 
 export default defineConfig({
   plugins: [sveltekit()],
+  ssr: {
+    noExternal: ["matrix-js-sdk"]
+  },
+  optimizeDeps: {
+    include: ["matrix-js-sdk"]
+  },
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
     'import.meta.env.VITE_GIT_COMMIT': JSON.stringify(gitCommit),

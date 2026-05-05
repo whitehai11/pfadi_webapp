@@ -49,6 +49,7 @@ export const pushRoutes = async (app: FastifyInstance) => {
   });
 
   app.post("/push/subscribe", { preHandler: [requireAuth, pushSubscribeRateLimit] }, async (request, reply) => {
+    if (reply.sent) return;
     const parsed = parseOrReply(reply, subscriptionSchema, request.body);
     if (!parsed) return;
     try {
@@ -62,6 +63,7 @@ export const pushRoutes = async (app: FastifyInstance) => {
   });
 
   app.post("/push/unsubscribe", { preHandler: [requireAuth, pushUnsubscribeRateLimit] }, async (request, reply) => {
+    if (reply.sent) return;
     const parsed = parseOrReply(reply, subscriptionSchema, request.body);
     if (!parsed) return;
     try {

@@ -25,6 +25,7 @@
   import AdminApiHeatmap from "$lib/components/admin/AdminApiHeatmap.svelte";
   import AdminPushManagement from "$lib/components/admin/AdminPushManagement.svelte";
   import AdminGroupManagement from "$lib/components/admin/AdminGroupManagement.svelte";
+  import AdminMatrixUsers from "$lib/components/admin/AdminMatrixUsers.svelte";
   import HeroCard from "$lib/components/heroui/HeroCard.svelte";
   import HeroButton from "$lib/components/heroui/HeroButton.svelte";
 
@@ -39,6 +40,7 @@
     users: "Benutzerverwaltung",
     push: "Push-Verwaltung",
     groups: "Gruppen",
+    matrix: "Matrix-User",
     settings: "Basis-Einstellungen",
     observability: "Observability",
     "system-monitor": "Systemstatus",
@@ -64,6 +66,7 @@
         { id: "users", label: "Benutzer" },
         { id: "groups", label: "Gruppen" },
         { id: "push", label: "Push" },
+        { id: "matrix", label: "Matrix" },
         { id: "settings", label: "Einstellungen" }
       ]
     }
@@ -230,6 +233,10 @@
         {:else if activeTab === "api-heatmap"}
           <div in:fade={{ duration: 150 }}>
             <AdminApiHeatmap />
+          </div>
+        {:else if activeTab === "matrix"}
+          <div in:fade={{ duration: 150 }}>
+            <AdminMatrixUsers />
           </div>
         {/if}
       </section>

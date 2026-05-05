@@ -1,132 +1,163 @@
 <script lang="ts">
   import { onDestroy, onMount, tick } from "svelte";
-  import Avatar from "$lib/components/Avatar.svelte";
   import Card from "$lib/components/Card.svelte";
   import { session } from "$lib/auth";
   import { pushToast } from "$lib/toast";
+  import { apiFetch } from "$lib/api";
   import {
-    chatStore,
-    createDirectConversation,
-    createGroupConversation,
-    refreshChatData,
-    retryChatMessage,
-    selectConversation,
-    sendChatMessage,
-    sendReadReceipt,
-    sendTypingState,
-    startChatRealtime,
-    stopChatRealtime
-  } from "$lib/stores/chat";
+    matrixStore,
+    startMatrix,
+    stopMatrix,
+    sendMessage,
+    sendFile,
+    setTyping,
+    setActiveRoom,
+    createGroup,
+    startDM
+  } from "$lib/stores/matrix";
+  import { mxcToHttp } from "$lib/matrix/client";
 
   let messageInput = "";
-  let composerFocused = false;
   let scrollEl: HTMLDivElement | null = null;
-  let lastActiveCount = 0;
-  let typingTimeout: number | null = null;
-  let selectedUserId = "";
-  let groupName = "";
-  let groupMembers = new Set<string>();
+  let fileInput: HTMLInputElement | null = null;
+  let typingTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastMessageCount = 0;
+  let sending = false;
 
-  const formatTime = (value: string) =>
-    new Date(value).toLocaleTimeString("de-DE", {
-      hour: "2-digit",
-      minute: "2-digit"
-    });
+  // Modal state
+  let showNewGroup = false;
+  let showNewDM = false;
+  let newGroupName = "";
+  let newDMTarget = "";
+  let modalBusy = false;
 
-  const formatDateTime = (value: string | null) => {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return date.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
-  };
+  // Matrix users list for DM autocomplete
+  type MxUser = { matrix_user_id: string; email: string | null };
+  let mxUsers: MxUser[] = [];
 
-  const statusSymbol = (status: "sending" | "delivered" | "read" | "failed") => {
-    if (status === "sending") return "...";
-    if (status === "delivered") return "✓";
-    if (status === "read") return "✓✓";
-    return "!";
-  };
+  const formatTime = (ts: number) =>
+    new Date(ts).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
 
   const scrollToBottom = async () => {
     await tick();
-    if (!scrollEl) return;
-    scrollEl.scrollTop = scrollEl.scrollHeight;
+    if (scrollEl) scrollEl.scrollTop = scrollEl.scrollHeight;
   };
 
-  const setTypingDebounced = () => {
-    sendTypingState(Boolean(messageInput.trim()) && composerFocused);
+  const onTypingInput = () => {
+    void setTyping(Boolean(messageInput.trim()));
     if (typingTimeout !== null) clearTimeout(typingTimeout);
-    typingTimeout = window.setTimeout(() => {
-      sendTypingState(false);
-    }, 2500);
+    typingTimeout = setTimeout(() => void setTyping(false), 3000);
   };
 
-  const submitMessage = async () => {
-    const content = messageInput.trim();
-    if (!content) return;
-    sendChatMessage(content);
+  const submit = async () => {
+    const text = messageInput.trim();
+    if (!text || sending) return;
+    sending = true;
     messageInput = "";
-    sendTypingState(false);
-    await scrollToBottom();
-  };
-
-  const startDirectChat = async () => {
-    if (!selectedUserId) return;
+    if (typingTimeout !== null) clearTimeout(typingTimeout);
+    void setTyping(false);
     try {
-      await createDirectConversation(selectedUserId);
-      selectedUserId = "";
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Direktchat konnte nicht erstellt werden.", "error");
+      await sendMessage(text);
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "Senden fehlgeschlagen.", "error");
+      messageInput = text;
+    } finally {
+      sending = false;
     }
   };
 
-  const toggleGroupMember = (userId: string, checked: boolean) => {
-    const next = new Set(groupMembers);
-    if (checked) next.add(userId);
-    else next.delete(userId);
-    groupMembers = next;
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submit();
+    }
   };
 
-  const createGroup = async () => {
-    const members = Array.from(groupMembers);
-    if (!groupName.trim() || members.length === 0) return;
-    try {
-      await createGroupConversation(groupName.trim(), members);
-      groupName = "";
-      groupMembers = new Set<string>();
-    } catch (error) {
-      pushToast(error instanceof Error ? error.message : "Gruppe konnte nicht erstellt werden.", "error");
+  const pickFile = () => fileInput?.click();
+
+  const onFileSelected = async (e: Event) => {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    input.value = "";
+    if (file.size > 20 * 1024 * 1024) {
+      pushToast("Datei ist zu groß (max. 20 MB).", "error");
+      return;
     }
+    try {
+      await sendFile(file);
+    } catch (err) {
+      pushToast(err instanceof Error ? err.message : "Upload fehlgeschlagen.", "error");
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!newGroupName.trim()) return;
+    modalBusy = true;
+    try {
+      const roomId = await createGroup(newGroupName.trim());
+      setActiveRoom(roomId);
+      showNewGroup = false;
+      newGroupName = "";
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "Fehler beim Erstellen.", "error");
+    } finally {
+      modalBusy = false;
+    }
+  };
+
+  const handleStartDM = async () => {
+    const target = newDMTarget.trim();
+    if (!target) return;
+    const matrixId = target.startsWith("@") ? target : `@${target}:matrix.uvh.maro.run`;
+    modalBusy = true;
+    try {
+      const roomId = await startDM(matrixId);
+      setActiveRoom(roomId);
+      showNewDM = false;
+      newDMTarget = "";
+    } catch (e) {
+      pushToast(e instanceof Error ? e.message : "Fehler beim Erstellen.", "error");
+    } finally {
+      modalBusy = false;
+    }
+  };
+
+  const loadMxUsers = async () => {
+    try {
+      const data = await apiFetch<MxUser[]>("/api/matrix/users");
+      mxUsers = (data ?? []).filter((u) => u.matrix_user_id !== $matrixStore.userId);
+    } catch { /* silent */ }
   };
 
   onMount(() => {
-    startChatRealtime();
-    void refreshChatData();
+    void startMatrix();
+    void loadMxUsers();
   });
 
   onDestroy(() => {
-    stopChatRealtime();
+    stopMatrix();
     if (typingTimeout !== null) clearTimeout(typingTimeout);
   });
 
-  $: activeConversation = $chatStore.conversations.find((conversation) => conversation.id === $chatStore.activeConversationId) ?? null;
-  $: activeMessages = activeConversation ? ($chatStore.messagesByConversation[activeConversation.id] ?? []) : [];
-  $: typingCount = activeConversation ? ($chatStore.typingByConversation[activeConversation.id] ?? []).length : 0;
-  $: onlineCount = activeConversation ? ($chatStore.onlineByConversation[activeConversation.id] ?? []).length : 0;
-  $: isDev = $session?.role === "dev";
+  $: if ($matrixStore.error) pushToast($matrixStore.error, "error");
 
-  $: if ($chatStore.lastError) {
-    pushToast($chatStore.lastError, "error");
-  }
+  $: activeMessages = $matrixStore.activeRoomId
+    ? ($matrixStore.messages[$matrixStore.activeRoomId] ?? [])
+    : [];
 
-  $: if (activeConversation && activeMessages.length !== lastActiveCount) {
-    lastActiveCount = activeMessages.length;
+  $: if (activeMessages.length !== lastMessageCount) {
+    lastMessageCount = activeMessages.length;
     void scrollToBottom();
-    const latest = activeMessages[activeMessages.length - 1];
-    if (latest?.id) {
-      sendReadReceipt(latest.id);
-    }
   }
+
+  $: homeserverUrl = $matrixStore.homeserverUrl ?? "";
+  $: myUserId = $matrixStore.userId ?? "";
+
+  $: groups = $matrixStore.rooms.filter((r) => !r.isDM);
+  $: dms = $matrixStore.rooms.filter((r) => r.isDM);
+
+  $: activeRoom = $matrixStore.rooms.find((r) => r.roomId === $matrixStore.activeRoomId);
 </script>
 
 <div class="page-stack">
@@ -139,181 +170,338 @@
       <p class="text-muted">Anmeldung erforderlich.</p>
     </Card>
   {:else}
-    <section class="chat-layout">
+    <div class="chat-wrap">
+      <!-- Sidebar -->
       <aside class="chat-sidebar glass-panel">
-        <header class="chat-sidebar__header">
-          <h2>Konversationen</h2>
-          <span class={`badge ${$chatStore.connected ? "badge-success" : "badge-warning"}`}>{$chatStore.socketState}</span>
-        </header>
-
-        <div class="chat-sidebar__actions">
-          <select class="input" bind:value={selectedUserId}>
-            <option value="">Direktnachricht starten</option>
-            {#each $chatStore.users as user}
-              <option value={user.id}>{user.username}</option>
-            {/each}
-          </select>
-          <button class="btn btn-outline" type="button" on:click={() => void startDirectChat()} disabled={!selectedUserId}>
-            Starten
-          </button>
-        </div>
-
-        <div class="chat-sidebar__group-builder">
-          <input class="input" placeholder="Gruppenname" bind:value={groupName} />
-          <div class="member-list">
-            {#each $chatStore.users as user}
-              <label class="member-item">
-                <input
-                  type="checkbox"
-                  checked={groupMembers.has(user.id)}
-                  on:change={(event) => toggleGroupMember(user.id, (event.currentTarget as HTMLInputElement).checked)}
-                />
-                <span>{user.username}</span>
-              </label>
-            {/each}
+        <div class="sidebar-section">
+          <div class="sidebar-heading">
+            <span>Räume</span>
+            <button class="icon-btn" title="Neuer Raum" on:click={() => (showNewGroup = true)}>+</button>
           </div>
-          <button class="btn btn-outline" type="button" on:click={() => void createGroup()} disabled={!groupName.trim() || groupMembers.size === 0}>
-            Gruppe erstellen
-          </button>
+          {#each groups as room (room.roomId)}
+            <button
+              class="room-item"
+              class:active={room.roomId === $matrixStore.activeRoomId}
+              on:click={() => setActiveRoom(room.roomId)}
+            >
+              <span class="room-icon">#</span>
+              <span class="room-name">{room.name}</span>
+            </button>
+          {/each}
+          {#if groups.length === 0 && $matrixStore.status === "ready"}
+            <p class="sidebar-empty">Keine Räume</p>
+          {/if}
         </div>
 
-        <nav class="conversation-list" aria-label="Konversationen">
-          {#if $chatStore.conversations.length === 0}
-            <p class="text-muted">Keine Konversationen.</p>
-          {:else}
-            {#each $chatStore.conversations as conversation}
-              <button
-                type="button"
-                class={`conversation-item ${$chatStore.activeConversationId === conversation.id ? "is-active" : ""}`}
-                on:click={() => void selectConversation(conversation.id)}
-              >
-                <div class="conversation-item__title">
-                  <strong>{conversation.name}</strong>
-                  <small>{conversation.type}</small>
-                </div>
-                <p>{conversation.last_message_preview ?? "Keine Nachrichten"}</p>
-                <span class="text-muted">{formatDateTime(conversation.last_message_at)}</span>
-              </button>
-            {/each}
+        <div class="sidebar-section">
+          <div class="sidebar-heading">
+            <span>Direktnachrichten</span>
+            <button class="icon-btn" title="Neue DM" on:click={() => (showNewDM = true)}>+</button>
+          </div>
+          {#each dms as room (room.roomId)}
+            <button
+              class="room-item"
+              class:active={room.roomId === $matrixStore.activeRoomId}
+              on:click={() => setActiveRoom(room.roomId)}
+            >
+              <span class="room-icon dm-icon">@</span>
+              <span class="room-name">{room.name}</span>
+            </button>
+          {/each}
+          {#if dms.length === 0 && $matrixStore.status === "ready"}
+            <p class="sidebar-empty">Keine DMs</p>
           {/if}
-        </nav>
+        </div>
       </aside>
 
-      <section class="chat-main glass-panel">
-        {#if !activeConversation}
-          <div class="chat-empty">
-            <p>Bitte eine Konversation auswählen.</p>
-          </div>
-        {:else}
-          <header class="chat-main__header">
-            <div>
-              <h2>{activeConversation.name}</h2>
-              <p class="text-muted">{activeConversation.member_count} Mitglieder · {onlineCount} online</p>
-            </div>
-          </header>
-
-          <div bind:this={scrollEl} class="chat-thread" role="log" aria-label="Nachrichten">
-            {#if activeMessages.length === 0}
-              <div class="empty-state">
-                <p>Keine Nachrichten.</p>
-              </div>
+      <!-- Main chat -->
+      <section class="chat-layout glass-panel">
+        <header class="chat-header">
+          <div class="chat-header__info">
+            {#if activeRoom}
+              <span class="room-tag">{activeRoom.isDM ? "@" : "#"}</span>
+              <h2>{activeRoom.name}</h2>
             {:else}
-              {#each activeMessages as message (message.localId)}
-                <article class="chat-message" class:own={message.senderId === $session?.id}>
-                  <header class="chat-meta">
-                    <Avatar name={message.senderName} avatarUrl={null} size={36} />
-                    <div class="chat-meta__text">
-                      <strong>{message.senderName}</strong>
-                      <span class="text-muted">{formatTime(message.createdAt)}</span>
-                    </div>
-                    {#if message.senderId === $session?.id}
-                      <span class={`delivery ${message.status}`}>{statusSymbol(message.status)}</span>
-                    {/if}
-                  </header>
-                  <div class="chat-bubble">
-                    <p>{message.content}</p>
-                  </div>
-                  {#if message.status === "failed"}
-                    <div class="chat-error-row">
-                      <span class="status-banner error">Senden fehlgeschlagen.</span>
-                      <button class="btn btn-outline" type="button" on:click={() => retryChatMessage(message.localId)}>
-                        Erneut senden
-                      </button>
-                    </div>
-                  {/if}
-                </article>
-              {/each}
+              <h2>Chat</h2>
             {/if}
+            <span class={`status-dot ${$matrixStore.status === "ready" ? "online" : "offline"}`}></span>
+            <span class="text-muted status-label">
+              {#if $matrixStore.status === "connecting"}Verbinde...{:else if $matrixStore.status === "ready"}Verbunden{:else if $matrixStore.status === "error"}Fehler{:else}—{/if}
+            </span>
           </div>
+        </header>
 
-          {#if typingCount > 0}
-            <p class="typing-indicator">{typingCount} tippt...</p>
-          {/if}
-
-          <form class="chat-composer glass-composer" on:submit|preventDefault={submitMessage}>
-            <textarea
-              class="textarea"
-              rows="3"
-              bind:value={messageInput}
-              placeholder="Nachricht schreiben..."
-              maxlength="4000"
-              on:focus={() => {
-                composerFocused = true;
-                setTypingDebounced();
-              }}
-              on:blur={() => {
-                composerFocused = false;
-                sendTypingState(false);
-              }}
-              on:input={setTypingDebounced}
-            ></textarea>
-            <div class="chat-composer__actions">
-              <button class="btn btn-primary" type="submit" disabled={!messageInput.trim()}>
-                Senden
-              </button>
+        <div bind:this={scrollEl} class="chat-thread" role="log" aria-label="Nachrichten">
+          {#if $matrixStore.status === "connecting"}
+            <div class="empty-state"><p>Verbinde mit Matrix...</p></div>
+          {:else if $matrixStore.status === "error"}
+            <div class="empty-state">
+              <p class="text-danger">Matrix nicht erreichbar.</p>
+              <button class="btn btn-outline" type="button" on:click={() => void startMatrix()}>Erneut verbinden</button>
             </div>
-          </form>
-
-          {#if isDev}
-            <details class="ws-debug">
-              <summary>WebSocket Debug</summary>
-              <div class="ws-debug__meta">
-                <span>Status: {$chatStore.socketState}</span>
-                <span>Events: {$chatStore.debugEvents.length}</span>
-              </div>
-              <div class="ws-debug__list" role="log" aria-label="WebSocket Debug Events">
-                {#if $chatStore.debugEvents.length === 0}
-                  <p class="text-muted">Keine Events.</p>
-                {:else}
-                  {#each $chatStore.debugEvents as event, index (event.ts + ":" + index)}
-                    <article class="ws-debug__item">
-                      <header>
-                        <strong>{event.direction}</strong>
-                        <span class="text-muted">{event.type}</span>
-                        <time class="text-muted">{formatDateTime(event.ts)}</time>
-                      </header>
-                      <pre>{JSON.stringify(event.payload, null, 2)}</pre>
-                    </article>
-                  {/each}
-                {/if}
-              </div>
-            </details>
+          {:else if !$matrixStore.activeRoomId}
+            <div class="empty-state"><p>Raum auswählen.</p></div>
+          {:else if activeMessages.length === 0}
+            <div class="empty-state"><p>Noch keine Nachrichten.</p></div>
+          {:else}
+            {#each activeMessages as msg (msg.eventId)}
+              {@const isOwn = msg.senderId === myUserId}
+              <article class="chat-message" class:own={isOwn}>
+                <header class="chat-meta">
+                  <div class="avatar-circle">{msg.senderName.charAt(0).toUpperCase()}</div>
+                  <div class="chat-meta__text">
+                    <strong>{msg.senderName}</strong>
+                    <time class="text-muted">{formatTime(msg.timestamp)}</time>
+                  </div>
+                </header>
+                <div class="chat-bubble">
+                  {#if msg.msgtype === "m.text"}
+                    <p>{msg.body}</p>
+                  {:else if msg.msgtype === "m.image" && msg.mxcUrl}
+                    <img
+                      src={mxcToHttp(msg.mxcUrl, homeserverUrl)}
+                      alt={msg.fileName ?? "Bild"}
+                      class="chat-image"
+                      loading="lazy"
+                    />
+                  {:else if msg.mxcUrl}
+                    <a
+                      href={mxcToHttp(msg.mxcUrl, homeserverUrl)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="attachment-link"
+                    >
+                      📎 {msg.fileName ?? "Anhang"}
+                      {#if msg.fileSize}
+                        <small>({(msg.fileSize / 1024).toFixed(1)} KB)</small>
+                      {/if}
+                    </a>
+                  {:else}
+                    <p>{msg.body}</p>
+                  {/if}
+                </div>
+              </article>
+            {/each}
           {/if}
+        </div>
+
+        {#if $matrixStore.typing.length > 0}
+          <p class="typing-indicator">
+            {$matrixStore.typing.join(", ")} tippt...
+          </p>
         {/if}
+
+        <form class="chat-composer" on:submit|preventDefault={submit}>
+          <textarea
+            class="textarea"
+            rows="2"
+            bind:value={messageInput}
+            placeholder="Nachricht… (Enter zum Senden)"
+            maxlength="8000"
+            disabled={$matrixStore.status !== "ready" || !$matrixStore.activeRoomId || sending}
+            on:input={onTypingInput}
+            on:keydown={onKeydown}
+          ></textarea>
+          <div class="chat-composer__actions">
+            <button
+              class="btn btn-outline"
+              type="button"
+              title="Datei anhängen"
+              disabled={$matrixStore.status !== "ready" || !$matrixStore.activeRoomId}
+              on:click={pickFile}
+            >📎</button>
+            <button
+              class="btn btn-primary"
+              type="submit"
+              disabled={!messageInput.trim() || $matrixStore.status !== "ready" || !$matrixStore.activeRoomId || sending}
+            >Senden</button>
+          </div>
+          <input
+            bind:this={fileInput}
+            type="file"
+            class="sr-only"
+            accept="image/*,.pdf,.txt,.md,.docx,.xlsx,.pptx"
+            on:change={onFileSelected}
+          />
+        </form>
       </section>
-    </section>
+    </div>
   {/if}
 </div>
 
+<!-- New Group Modal -->
+{#if showNewGroup}
+  <div class="modal-backdrop" on:click|self={() => (showNewGroup = false)} role="presentation">
+    <div class="modal glass-panel">
+      <h3>Neuer Raum</h3>
+      <input
+        class="modal-input"
+        type="text"
+        bind:value={newGroupName}
+        placeholder="Raumname"
+        autofocus
+        on:keydown={(e) => e.key === "Enter" && void handleCreateGroup()}
+      />
+      <div class="modal-actions">
+        <button class="btn btn-outline" on:click={() => (showNewGroup = false)}>Abbrechen</button>
+        <button class="btn btn-primary" disabled={!newGroupName.trim() || modalBusy} on:click={handleCreateGroup}>
+          {modalBusy ? "Erstelle..." : "Erstellen"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<!-- New DM Modal -->
+{#if showNewDM}
+  <div class="modal-backdrop" on:click|self={() => (showNewDM = false)} role="presentation">
+    <div class="modal glass-panel">
+      <h3>Direktnachricht</h3>
+      <p class="modal-hint">Matrix-Benutzername eingeben</p>
+      {#if mxUsers.length > 0}
+        <div class="user-list">
+          {#each mxUsers as u (u.matrix_user_id)}
+            <button
+              class="user-chip"
+              class:selected={newDMTarget === u.matrix_user_id}
+              on:click={() => (newDMTarget = u.matrix_user_id)}
+            >
+              {u.email ?? u.matrix_user_id.split(":")[0].replace("@", "")}
+            </button>
+          {/each}
+        </div>
+      {/if}
+      <input
+        class="modal-input"
+        type="text"
+        bind:value={newDMTarget}
+        placeholder="@benutzername:matrix.uvh.maro.run"
+        on:keydown={(e) => e.key === "Enter" && void handleStartDM()}
+      />
+      <div class="modal-actions">
+        <button class="btn btn-outline" on:click={() => (showNewDM = false)}>Abbrechen</button>
+        <button class="btn btn-primary" disabled={!newDMTarget.trim() || modalBusy} on:click={handleStartDM}>
+          {modalBusy ? "Öffne..." : "Öffnen"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
-  .chat-layout {
+  .chat-wrap {
     display: grid;
-    grid-template-columns: minmax(260px, 320px) 1fr;
+    grid-template-columns: 220px 1fr;
     gap: var(--space-2);
-    min-height: 72vh;
+    align-items: start;
   }
 
-  .glass-panel {
+  .chat-sidebar {
+    border-radius: 16px;
+    padding: 1rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    background: var(--surface-panel);
+    backdrop-filter: blur(18px) saturate(130%);
+    box-shadow: var(--shadow-elev);
+    border: 1px solid var(--border-card);
+  }
+
+  .sidebar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .icon-btn:hover {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  .room-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.88rem;
+    transition: background 0.12s;
+    width: 100%;
+  }
+
+  .room-item:hover {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+
+  .room-item.active {
+    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .room-icon {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    width: 14px;
+  }
+
+  .room-item.active .room-icon {
+    color: var(--accent);
+  }
+
+  .dm-icon {
+    font-style: normal;
+  }
+
+  .room-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sidebar-empty {
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .chat-layout {
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: var(--space-1);
+    min-height: 72vh;
     border-radius: 18px;
     background: var(--surface-panel);
     backdrop-filter: blur(18px) saturate(130%);
@@ -322,129 +510,67 @@
     padding: var(--space-2);
   }
 
-  .chat-sidebar {
-    display: grid;
-    gap: var(--space-1);
-    align-content: start;
-  }
-
-  .chat-sidebar__header {
+  .chat-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-1);
+    padding-bottom: var(--space-1);
+    border-bottom: 1px solid var(--border-card);
   }
 
-  .chat-sidebar__header h2 {
-    margin: 0;
+  .chat-header__info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .room-tag {
     font-size: 1rem;
-  }
-
-  .chat-sidebar__actions {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--space-1);
-  }
-
-  .chat-sidebar__group-builder {
-    display: grid;
-    gap: 8px;
-    padding: 10px;
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--surface-subtle) 76%, transparent);
-  }
-
-  .member-list {
-    display: grid;
-    gap: 6px;
-    max-height: 120px;
-    overflow-y: auto;
-  }
-
-  .member-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 30px;
-    font-size: 13px;
-  }
-
-  .conversation-list {
-    display: grid;
-    gap: 8px;
-    overflow-y: auto;
-    max-height: 52vh;
-  }
-
-  .conversation-item {
-    border: none;
-    border-radius: 14px;
-    background: var(--surface-subtle);
-    padding: 10px;
-    text-align: left;
-    cursor: pointer;
-    display: grid;
-    gap: 4px;
-    min-height: 64px;
-  }
-
-  .conversation-item.is-active {
-    background: color-mix(in srgb, var(--accent) 14%, var(--surface-subtle) 86%);
-  }
-
-  .conversation-item__title {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .conversation-item__title small {
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
+    font-weight: 600;
   }
 
-  .conversation-item p {
+  .chat-header__info h2 {
     margin: 0;
-    color: var(--text-secondary);
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 1.1rem;
   }
 
-  .chat-main {
-    display: grid;
-    grid-template-rows: auto 1fr auto auto;
-    gap: var(--space-1);
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-secondary);
   }
 
-  .chat-main__header h2 {
-    margin: 0;
-  }
-
-  .chat-main__header p {
-    margin: 4px 0 0;
-  }
+  .status-dot.online { background: #22c55e; }
+  .status-label { font-size: 0.85rem; }
 
   .chat-thread {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-1);
     overflow-y: auto;
-    min-height: 38vh;
-    max-height: 54vh;
+    min-height: 42vh;
+    max-height: 56vh;
     padding-right: 4px;
+    scroll-behavior: smooth;
+  }
+
+  .empty-state {
+    display: grid;
+    place-items: center;
+    flex: 1;
+    padding: var(--space-2);
+    color: var(--text-secondary);
   }
 
   .chat-message {
     display: grid;
     gap: 6px;
+    max-width: 80%;
   }
 
-  .chat-message.own .chat-bubble {
-    background: color-mix(in srgb, var(--accent) 14%, var(--surface-subtle) 86%);
-  }
+  .chat-message.own { align-self: flex-end; }
 
   .chat-meta {
     display: flex;
@@ -457,121 +583,157 @@
     gap: 2px;
   }
 
+  .avatar-circle {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--accent) 30%, var(--surface-subtle) 70%);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+  }
+
   .chat-bubble {
     border-radius: 16px;
     background: var(--surface-subtle);
-    padding: 12px 14px;
+    padding: 10px 14px;
     box-shadow: var(--shadow-sm);
-  }
-
-  .chat-bubble p {
-    margin: 0;
-    white-space: pre-wrap;
     word-break: break-word;
   }
 
-  .delivery {
-    margin-left: auto;
-    color: var(--text-secondary);
-    font-weight: 600;
+  .chat-message.own .chat-bubble {
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface-subtle) 84%);
   }
 
-  .delivery.read {
-    color: var(--accent);
+  .chat-bubble p { margin: 0; white-space: pre-wrap; }
+
+  .chat-image {
+    max-width: 300px;
+    max-height: 220px;
+    border-radius: 10px;
+    display: block;
+    object-fit: contain;
   }
 
-  .delivery.failed {
-    color: var(--danger);
-  }
-
-  .chat-error-row {
+  .attachment-link {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
   }
+
+  .attachment-link:hover { text-decoration: underline; }
 
   .typing-indicator {
     margin: 0;
+    padding: 4px 0;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-style: italic;
   }
 
   .chat-composer {
     display: grid;
     gap: 8px;
-  }
-
-  .glass-composer {
+    padding: 10px;
     border-radius: 14px;
     background: color-mix(in srgb, var(--surface-subtle) 80%, transparent);
-    padding: 10px;
   }
 
   .chat-composer__actions {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
   }
 
-  .chat-empty {
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    padding: 0; margin: -1px;
+    overflow: hidden;
+    clip: rect(0,0,0,0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .text-danger { color: var(--danger); }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
     display: grid;
     place-items: center;
-    min-height: 44vh;
+    z-index: 999;
   }
 
-  .ws-debug {
-    border-radius: 12px;
-    background: color-mix(in srgb, var(--surface-subtle) 84%, transparent);
-    padding: 10px;
-  }
-
-  .ws-debug summary {
-    cursor: pointer;
-    font-weight: 600;
-  }
-
-  .ws-debug__meta {
-    margin-top: 8px;
+  .modal {
+    width: min(420px, 92vw);
+    border-radius: 16px;
+    padding: 1.75rem;
     display: flex;
-    gap: 12px;
-    color: var(--text-secondary);
+    flex-direction: column;
+    gap: 1rem;
+    background: var(--surface-panel);
+    border: 1px solid var(--border-card);
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+
+  .modal h3 { margin: 0; font-size: 1.1rem; }
+
+  .modal-hint {
+    margin: 0;
     font-size: 0.85rem;
+    color: var(--text-secondary);
   }
 
-  .ws-debug__list {
-    margin-top: 10px;
-    max-height: 220px;
-    overflow: auto;
-    display: grid;
-    gap: 8px;
+  .modal-input {
+    background: var(--bg-input, #12151f);
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    border-radius: 8px;
+    color: inherit;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.9rem;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .ws-debug__item {
-    border-radius: 10px;
-    background: var(--surface-subtle);
-    padding: 8px;
-  }
+  .modal-input:focus { border-color: var(--accent); }
 
-  .ws-debug__item header {
+  .modal-actions {
     display: flex;
-    gap: 8px;
-    align-items: center;
-    font-size: 0.8rem;
+    gap: 0.75rem;
+    justify-content: flex-end;
   }
 
-  .ws-debug__item pre {
-    margin: 8px 0 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-size: 0.75rem;
+  .user-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
-  @media (max-width: 980px) {
-    .chat-layout {
-      grid-template-columns: 1fr;
-    }
+  .user-chip {
+    padding: 4px 12px;
+    border-radius: 99px;
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 0.83rem;
+    transition: background 0.12s, border-color 0.12s;
+  }
 
-    .conversation-list {
-      max-height: 28vh;
-    }
+  .user-chip:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+  .user-chip.selected { background: color-mix(in srgb, var(--accent) 22%, transparent); border-color: var(--accent); }
+
+  @media (max-width: 680px) {
+    .chat-wrap { grid-template-columns: 1fr; }
+    .chat-sidebar { display: none; }
   }
 </style>

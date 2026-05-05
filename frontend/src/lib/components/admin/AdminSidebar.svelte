@@ -18,7 +18,8 @@
     | "redis"
     | "security"
     | "errors"
-    | "api-heatmap";
+    | "api-heatmap"
+    | "matrix";
 
   export type AdminTabItem = {
     id: AdminTabId;

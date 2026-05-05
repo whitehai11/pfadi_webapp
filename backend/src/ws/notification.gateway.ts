@@ -3,7 +3,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import type { FastifyInstance } from "fastify";
 import type { IncomingMessage } from "node:http";
 import { URL } from "node:url";
-import { getApprovedUserById } from "./chat.service.js";
+import { getApprovedUserById } from "../utils/guards.js";
 import { getUnreadNotificationCount, setNotificationRealtimeEmitter } from "../services/notification.service.js";
 import { recordWsBroadcast, setNotificationConnectionCount } from "../services/admin-monitor.service.js";
 import {

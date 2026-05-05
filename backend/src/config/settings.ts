@@ -19,6 +19,10 @@ export type AppSettings = {
   dataDir: string;
   chatUploadMaxBytes: number;
   shutdownTimeoutMs: number;
+  matrixHomeserverUrl: string;
+  matrixPublicUrl: string;
+  matrixServerName: string;
+  matrixRegistrationToken: string;
 };
 
 const parseList = (value: string | undefined): string[] => {
@@ -53,7 +57,11 @@ const envSchema = z.object({
   ADMIN_BOOTSTRAP_TOKEN: z.string().trim().optional(),
   DATA_DIR: z.string().trim().min(1).default("./data"),
   CHAT_UPLOAD_MAX_BYTES: z.preprocess((value) => toPositiveInt(value, 10 * 1024 * 1024), z.number().int().min(1024)),
-  SHUTDOWN_TIMEOUT_MS: z.preprocess((value) => toPositiveInt(value, 15000), z.number().int().min(1000).max(60000))
+  SHUTDOWN_TIMEOUT_MS: z.preprocess((value) => toPositiveInt(value, 15000), z.number().int().min(1000).max(60000)),
+  MATRIX_HOMESERVER_URL: z.string().trim().default("http://conduit:6167"),
+  MATRIX_PUBLIC_URL: z.string().trim().default("https://matrix.uvh.maro.run"),
+  MATRIX_SERVER_NAME: z.string().trim().default("matrix.uvh.maro.run"),
+  MATRIX_REGISTRATION_TOKEN: z.string().trim().default("")
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
@@ -106,5 +114,9 @@ export const settings: AppSettings = {
   adminBootstrapToken: env.ADMIN_BOOTSTRAP_TOKEN ?? "",
   dataDir: env.DATA_DIR,
   chatUploadMaxBytes: env.CHAT_UPLOAD_MAX_BYTES,
-  shutdownTimeoutMs: env.SHUTDOWN_TIMEOUT_MS
+  shutdownTimeoutMs: env.SHUTDOWN_TIMEOUT_MS,
+  matrixHomeserverUrl: env.MATRIX_HOMESERVER_URL,
+  matrixPublicUrl: env.MATRIX_PUBLIC_URL,
+  matrixServerName: env.MATRIX_SERVER_NAME,
+  matrixRegistrationToken: env.MATRIX_REGISTRATION_TOKEN
 };

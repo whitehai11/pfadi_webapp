@@ -149,17 +149,17 @@
 
   const checkForVersionUpdate = async () => {
     const versionInfo = await fetchSystemVersion();
-    if (!versionInfo?.version) return;
+    if (!versionInfo?.commit) return;
 
     if (!currentVersion) {
-      currentVersion = versionInfo.version;
+      currentVersion = versionInfo.commit;
       pendingVersion = "";
       showUpdateBanner = false;
       return;
     }
 
-    if (versionInfo.version !== currentVersion) {
-      pendingVersion = versionInfo.version;
+    if (versionInfo.commit !== currentVersion) {
+      pendingVersion = versionInfo.version ?? versionInfo.commit;
       showUpdateBanner = true;
     }
   };

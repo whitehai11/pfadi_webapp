@@ -5,8 +5,7 @@
     totalUsers: number;
     activeSessions: number;
     totalEvents: number;
-    totalChatMessages: number;
-    messagesToday: number;
+    matrixUsers: number;
     serverUptime: number;
     memoryUsage: {
       rss: number;
@@ -68,26 +67,23 @@
         <p class="stat-value">{formatNumber(stats?.totalEvents)}</p>
       </Card>
 
-      <Card title="Chat Messages Today">
-        <p class="stat-value">{formatNumber(stats?.messagesToday)}</p>
+      <Card title="Matrix User">
+        <p class="stat-value">{formatNumber(stats?.matrixUsers)}</p>
+        <p class="text-muted">Provisioned</p>
       </Card>
 
       <Card title="Server Uptime">
         <p class="stat-value">{formatUptime(stats?.serverUptime)}</p>
       </Card>
 
-      <Card title="Memory Usage">
+      <Card title="Memory">
         <p class="stat-value">{bytesToMb(stats?.memoryUsage?.heapUsed)}</p>
         <p class="text-muted">Heap Used</p>
       </Card>
 
-      <Card title="App Version">
-        <p class="stat-value">{stats?.appVersion || "dev"}</p>
-        <p class="text-muted">Commit: {stats?.gitCommit || "dev"}</p>
-      </Card>
-
-      <Card title="Total Chat Messages">
-        <p class="stat-value">{formatNumber(stats?.totalChatMessages)}</p>
+      <Card title="Version">
+        <p class="stat-value">{stats?.appVersion || "1.0.0"}</p>
+        <p class="text-muted">{stats?.gitCommit && stats.gitCommit !== "–" ? stats.gitCommit.slice(0, 7) : "lokal"}</p>
       </Card>
     </div>
   {/if}

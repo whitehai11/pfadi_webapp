@@ -68,7 +68,7 @@
 
   onMount(() => {
     const current = get(session);
-    if (!current || current.role !== "admin") {
+    if (!current || (current.role !== "admin" && current.role !== "dev")) {
       loading = false;
       return;
     }

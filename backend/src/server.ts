@@ -27,7 +27,7 @@ import { pushRoutes } from "./api/push.routes.js";
 import { adminRoutes } from "./api/admin.routes.js";
 import { authRoutes } from "./api/auth.routes.js";
 import { settingsRoutes } from "./api/settings.routes.js";
-import { chatRoutes } from "./api/chat.routes.js";
+import { matrixRoutes } from "./api/matrix.routes.js";
 import { notificationRoutes } from "./api/notification.routes.js";
 import { systemRoutes } from "./api/system.routes.js";
 import { generateIcs, getIcsPath } from "./services/ics.service.js";
@@ -35,10 +35,8 @@ import { scheduleCalendarRefresh } from "./cron/calendar-refresh.cron.js";
 import { scheduleReminders } from "./cron/reminders.cron.js";
 import { schedulePacklistChecks } from "./cron/packlist-check.cron.js";
 import { scheduleCustomPushRules } from "./cron/push-rules.cron.js";
-import { ensureDefaultChatRoom } from "./services/chat.service.js";
 import { createRateLimit } from "./utils/rate-limit.js";
 import { logger } from "./utils/logger.js";
-import { setupChatGateway } from "./ws/chat.gateway.js";
 import { setupNotificationGateway } from "./ws/notification.gateway.js";
 import { setupAdminGateway } from "./ws/admin/index.js";
 import { recordApiMetric, recordSystemError } from "./services/admin-observability.service.js";
@@ -478,8 +476,6 @@ const ensureDefaults = () => {
   insertSetting.run("chat_enabled", "false", now);
   insertSetting.run("quiet_hours_start", "21:00", now);
   insertSetting.run("quiet_hours_end", "06:00", now);
-
-  ensureDefaultChatRoom();
 };
 
 app.register(authRoutes, { prefix: "/api" });
@@ -490,10 +486,9 @@ app.register(packlistRoutes, { prefix: "/api" });
 app.register(pushRoutes, { prefix: "/api" });
 app.register(adminRoutes, { prefix: "/api" });
 app.register(settingsRoutes, { prefix: "/api" });
-app.register(chatRoutes, { prefix: "/api" });
+app.register(matrixRoutes, { prefix: "/api" });
 app.register(notificationRoutes, { prefix: "/api" });
 app.register(systemRoutes, { prefix: "/api" });
-const chatGateway = setupChatGateway(app);
 const notificationGateway = setupNotificationGateway(app);
 const adminMonitorGateway = setupAdminGateway(app);
 
@@ -532,14 +527,6 @@ const gracefulShutdown = async (signal: string, exitCode = 0) => {
           error: error instanceof Error ? error.message : String(error)
         });
       }
-    }
-    try {
-      chatGateway.close();
-    } catch (error) {
-      logger.warn("Failed to stop chat gateway", {
-        signal,
-        error: error instanceof Error ? error.message : String(error)
-      });
     }
     try {
       notificationGateway.close();

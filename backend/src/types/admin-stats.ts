@@ -3,8 +3,7 @@ export type AdminStats = {
   totalUsers: number;
   activeSessions: number;
   totalEvents: number;
-  totalChatMessages: number;
-  messagesToday: number;
+  matrixUsers: number;
   serverUptime: number;
   memoryUsage: NodeJS.MemoryUsage;
   appVersion: string;

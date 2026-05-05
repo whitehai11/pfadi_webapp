@@ -248,7 +248,7 @@
     </div>
   </Card>
 
-  {#if $session?.role === "admin"}
+  {#if $session}
     <div id="new-event-form" bind:this={formRef}>
       <section class="page-stack">
         <h2 class="section-title">{editingId ? "Termin bearbeiten" : "Neuer Termin"}</h2>
@@ -355,7 +355,7 @@
     <Card title="Keine Termine">
       <div class="actions">
         <a class="btn btn-outline" href={webcalUrl}>ICS abonnieren</a>
-        {#if $session?.role === "admin"}
+        {#if $session}
           <button class="btn btn-primary" type="button" on:click={scrollToForm}>Termin anlegen</button>
         {/if}
       </div>

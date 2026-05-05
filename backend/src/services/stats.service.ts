@@ -7,8 +7,7 @@ import type { AdminStats } from "../types/admin-stats.js";
 type AggregateRow = {
   total_users: number;
   total_events: number;
-  total_chat_messages: number;
-  messages_today: number;
+  matrix_users: number;
 };
 
 const hasTable = (tableName: string) => {
@@ -61,40 +60,28 @@ const getDockerContainerId = () => {
   return null;
 };
 
-const utcDayRange = () => {
-  const now = new Date();
-  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return {
-    startIso: start.toISOString(),
-    endIso: end.toISOString()
-  };
-};
 
 export const getAdminStats = (): AdminStats => {
   const nowIso = new Date().toISOString();
-  const { startIso, endIso } = utcDayRange();
 
   const aggregate = db
     .prepare(
       `SELECT
          (SELECT COUNT(*) FROM users) as total_users,
          (SELECT COUNT(*) FROM events) as total_events,
-         (SELECT COUNT(*) FROM chat_messages) as total_chat_messages,
-         (SELECT COUNT(*) FROM chat_messages WHERE created_at >= ? AND created_at < ?) as messages_today`
+         (SELECT COUNT(*) FROM matrix_users) as matrix_users`
     )
-    .get(startIso, endIso) as AggregateRow;
+    .get() as AggregateRow;
 
   const version = getSystemVersion();
-  const commit = version?.commit ?? "dev";
-  const appVersion = version?.version ?? "dev";
+  const commit = version?.commit ?? "–";
+  const appVersion = version?.version ?? process.env.npm_package_version ?? "1.0.0";
 
   return {
     totalUsers: Number(aggregate.total_users ?? 0),
     activeSessions: getActiveSessionsCount(nowIso),
     totalEvents: Number(aggregate.total_events ?? 0),
-    totalChatMessages: Number(aggregate.total_chat_messages ?? 0),
-    messagesToday: Number(aggregate.messages_today ?? 0),
+    matrixUsers: Number(aggregate.matrix_users ?? 0),
     serverUptime: process.uptime(),
     memoryUsage: process.memoryUsage(),
     appVersion,

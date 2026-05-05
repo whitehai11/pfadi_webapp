@@ -36,7 +36,8 @@ export const calendarRoutes = async (app: FastifyInstance) => {
     return listEvents();
   });
 
-  app.post("/calendar", { preHandler: requireAdmin }, async (request, reply) => {
+  app.post("/calendar", { preHandler: requireAuth }, async (request, reply) => {
+    if (reply.sent) return;
     const parsed = parseOrReply(reply, eventSchema, request.body);
     if (!parsed) return;
     const event = createEvent({
@@ -49,7 +50,7 @@ export const calendarRoutes = async (app: FastifyInstance) => {
     return reply.code(201).send(event);
   });
 
-  app.put("/calendar/:id", { preHandler: requireAdmin }, async (request, reply) => {
+  app.put("/calendar/:id", { preHandler: requireAuth }, async (request, reply) => {
     const params = parseOrReply(reply, idParamsSchema, request.params);
     const parsed = parseOrReply(reply, eventSchema, request.body);
     if (!params || !parsed) return;

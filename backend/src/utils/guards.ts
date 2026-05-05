@@ -6,6 +6,14 @@ import { getBooleanSetting } from "../services/app-settings.service.js";
 const isDevRole = (role: string) => role.toLowerCase() === "dev";
 const isAdminRole = (role: string) => role.toLowerCase() === "admin";
 
+export const getApprovedUserById = (userId: string) => {
+  const user = db
+    .prepare("SELECT id, email, role, status FROM users WHERE id = ?")
+    .get(userId) as { id: string; email: string; role: string; status: string } | undefined;
+  if (!user || user.status !== "approved") return null;
+  return user;
+};
+
 export const getApprovedUserFromRequest = (request: FastifyRequest) => {
   const tokenUser = request.user as { id?: string; iat?: number };
   if (!tokenUser?.id) return null;
