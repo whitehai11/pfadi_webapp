@@ -9,6 +9,12 @@
   import { pushToast } from "$lib/toast";
   import { setThemePreference, themePreference, type ThemePreference } from "$lib/theme";
 
+  type VersionInfo = {
+    version: string;
+    commit: string;
+    updated_at: string;
+  };
+
   type SessionInfo = {
     id: string;
     label: string;
@@ -52,6 +58,7 @@
   let pushPrefs: PushPreferences = { enabled: false, events: true, chat: true, tasks: true };
   let sessions: SessionInfo[] = [];
   let devices: DeviceInfo[] = [];
+  let serverVersion: VersionInfo | null = null;
   let avatarUploadLoading = false;
   let avatarError = "";
   let avatarPreviewUrl = "";
@@ -249,10 +256,18 @@
     persistPushPrefs();
   };
 
+  const loadVersion = async () => {
+    try {
+      serverVersion = await apiFetch<VersionInfo>("/api/system/version", { toastOnError: false });
+    } catch {
+      // silently ignore
+    }
+  };
+
   onMount(async () => {
     loadTheme();
     loadLocalPrefs();
-    await loadSessions();
+    await Promise.all([loadSessions(), loadVersion()]);
   });
 
   $: if (previousTheme !== null && selectedTheme !== previousTheme) {
@@ -405,6 +420,31 @@
       {/each}
     </div>
   </HeroCard>
+
+  <HeroCard title="Version">
+    {#if serverVersion}
+      <div class="version-grid">
+        <div class="version-row">
+          <span class="version-label">Version</span>
+          <span class="version-value">{serverVersion.version}</span>
+        </div>
+        <div class="version-row">
+          <span class="version-label">Commit</span>
+          <code class="version-value">{serverVersion.commit.slice(0, 7)}</code>
+        </div>
+        <div class="version-row">
+          <span class="version-label">Gebaut am</span>
+          <span class="version-value">{new Date(serverVersion.updated_at).toLocaleString("de-DE")}</span>
+        </div>
+      </div>
+    {:else}
+      <p class="text-muted">Versionsdaten werden geladen...</p>
+    {/if}
+    <div class="version-actions">
+      <button class="btn btn-outline" type="button" on:click={loadVersion}>Aktualisieren</button>
+      <button class="btn btn-primary" type="button" on:click={() => window.location.reload()}>Seite neu laden</button>
+    </div>
+  </HeroCard>
 </div>
 
 <style>
@@ -427,5 +467,44 @@
     height: 1px;
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
+  }
+
+  .version-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .version-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .version-label {
+    font-size: 0.85rem;
+    color: var(--text-muted, #aaa);
+    flex-shrink: 0;
+  }
+
+  .version-value {
+    font-size: 0.9rem;
+    text-align: right;
+  }
+
+  code.version-value {
+    font-family: monospace;
+    background: var(--bg-muted, #2a2a3a);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.82rem;
+  }
+
+  .version-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
   }
 </style>
